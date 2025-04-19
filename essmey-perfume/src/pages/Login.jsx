@@ -79,11 +79,16 @@ export default function Login() {
   }
 
   return (
-    <div className="pt-28 pb-20 min-h-[60vh] flex items-center justify-center">
-      <div className="bg-white border rounded-lg shadow-lg p-8 max-w-md w-full">
+    <div className="pt-28 pb-20 min-h-[60vh] flex items-center justify-center bg-sand/30">
+      <div className="bg-white border rounded-lg shadow-md p-8 max-w-md w-full">
+        <h1 className="text-3xl font-serif font-medium text-center mb-6 text-amber">
+          {isLogin ? "Welcome Back" : "Create Account"}
+        </h1>
+        <div className="w-16 h-1 bg-amber mx-auto mb-8"></div>
+
         <div className="flex justify-center gap-4 mb-8">
           <button
-            className={`py-2 px-6 font-semibold border-b-2 transition-colors ${isLogin ? "border-black text-black" : "border-neutral-200 text-neutral-400"}`}
+            className={`py-2 px-6 font-semibold border-b-2 transition-colors ${isLogin ? "border-amber text-amber" : "border-neutral-200 text-neutral-400"}`}
             onClick={() => {
               setIsLogin(true);
               setError("");
@@ -92,7 +97,7 @@ export default function Login() {
             Login
           </button>
           <button
-            className={`py-2 px-6 font-semibold border-b-2 transition-colors ${!isLogin ? "border-black text-black" : "border-neutral-200 text-neutral-400"}`}
+            className={`py-2 px-6 font-semibold border-b-2 transition-colors ${!isLogin ? "border-amber text-amber" : "border-neutral-200 text-neutral-400"}`}
             onClick={() => {
               setIsLogin(false);
               setError("");
@@ -101,61 +106,82 @@ export default function Login() {
             Register
           </button>
         </div>
-        <form onSubmit={handleSubmit}>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
           {!isLogin && (
             <div className="mb-4">
-              <label className="block mb-1 font-medium">Name</label>
+              <label className="block mb-2 font-medium text-gray-700">
+                Name
+              </label>
               <input
                 name="name"
                 value={form.name}
                 onChange={handleInput}
-                className="w-full border rounded px-3 py-2"
+                className="w-full border border-neutral-300 rounded-md px-4 py-3 focus:border-amber focus:ring-1 focus:ring-amber/30 outline-none transition-colors"
                 autoComplete="name"
                 required={!isLogin}
               />
             </div>
           )}
           <div className="mb-4">
-            <label className="block mb-1 font-medium">Email</label>
+            <label className="block mb-2 font-medium text-gray-700">
+              Email
+            </label>
             <input
               name="email"
               type="email"
               value={form.email}
               onChange={handleInput}
-              className="w-full border rounded px-3 py-2"
+              className="w-full border border-neutral-300 rounded-md px-4 py-3 focus:border-amber focus:ring-1 focus:ring-amber/30 outline-none transition-colors"
               autoComplete={isLogin ? "username" : "email"}
               required
             />
           </div>
           <div className="mb-4">
-            <label className="block mb-1 font-medium">Password</label>
+            <label className="block mb-2 font-medium text-gray-700">
+              Password
+            </label>
             <input
               name="password"
               type="password"
               value={form.password}
               onChange={handleInput}
-              className="w-full border rounded px-3 py-2"
+              className="w-full border border-neutral-300 rounded-md px-4 py-3 focus:border-amber focus:ring-1 focus:ring-amber/30 outline-none transition-colors"
               autoComplete={isLogin ? "current-password" : "new-password"}
               required
             />
           </div>
           {!isLogin && (
             <div className="mb-4">
-              <label className="block mb-1 font-medium">Phone</label>
+              <label className="block mb-2 font-medium text-gray-700">
+                Phone
+              </label>
               <input
                 name="phone"
                 value={form.phone}
                 onChange={handleInput}
-                className="w-full border rounded px-3 py-2"
+                className="w-full border border-neutral-300 rounded-md px-4 py-3 focus:border-amber focus:ring-1 focus:ring-amber/30 outline-none transition-colors"
                 autoComplete="tel"
                 required
               />
             </div>
           )}
-          {error && <div className="text-red-600 mb-3">{error}</div>}
-          <button className="w-full btn-primary mt-2 mb-2">
+          {error && (
+            <div className="text-red-600 p-3 bg-red-50 border border-red-200 rounded-md mb-3">
+              {error}
+            </div>
+          )}
+          <button className="w-full btn-primary bg-amber hover:bg-amber/90 py-3 rounded-md transition-colors">
             {isLogin ? "Login" : "Register"}
           </button>
+
+          {isLogin && (
+            <p className="text-center text-gray-600 mt-4">
+              <a href="#" className="text-amber hover:underline">
+                Forgot your password?
+              </a>
+            </p>
+          )}
         </form>
       </div>
     </div>
