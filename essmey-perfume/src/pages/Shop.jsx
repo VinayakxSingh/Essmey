@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { sanityClient } from "../utils/sanity";
 import ProductCard from "../components/ProductCard";
 import { XMarkIcon } from "@heroicons/react/24/outline";
+import { products as sampleProducts } from "../utils/sampleData";
 
 const Shop = () => {
   const [searchParams] = useSearchParams();
@@ -13,6 +14,7 @@ const Shop = () => {
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [usingSampleData, setUsingSampleData] = useState(false);
 
   const [filters, setFilters] = useState({
     category: categoryParam || "all",
@@ -26,6 +28,8 @@ const Shop = () => {
   // Fetch products from sanity
   useEffect(() => {
     setLoading(true);
+    setError(null);
+
     sanityClient
       .fetch(
         `*[_type == "product"]{
@@ -43,11 +47,50 @@ const Shop = () => {
       }`
       )
       .then((data) => {
-        setAllProducts(data);
+        if (data && data.length > 0) {
+          setAllProducts(data);
+          setUsingSampleData(false);
+        } else {
+          // If no data from Sanity, convert sample data to match Sanity format
+          const formattedSampleData = sampleProducts.map((product) => ({
+            _id: product.id.toString(),
+            name: product.name,
+            category: product.category,
+            price: product.price,
+            stock: product.stock,
+            featured: product.featured,
+            bestSeller: product.bestSeller,
+            new: product.new,
+            description: product.description,
+            notes: product.notes,
+            images: product.images,
+          }));
+          setAllProducts(formattedSampleData);
+          setUsingSampleData(true);
+        }
         setLoading(false);
       })
       .catch((err) => {
-        setError("Could not load products");
+        console.error("Could not load products from Sanity:", err);
+        // Convert sample data to match Sanity format
+        const formattedSampleData = sampleProducts.map((product) => ({
+          _id: product.id.toString(),
+          name: product.name,
+          category: product.category,
+          price: product.price,
+          stock: product.stock,
+          featured: product.featured,
+          bestSeller: product.bestSeller,
+          new: product.new,
+          description: product.description,
+          notes: product.notes,
+          images: product.images,
+        }));
+        setAllProducts(formattedSampleData);
+        setUsingSampleData(true);
+        setError(
+          "Could not load products from database. Using sample data instead."
+        );
         setLoading(false);
       });
   }, []);
@@ -140,6 +183,13 @@ const Shop = () => {
         </div>
       </section>
       <div className="container-custom">
+        {usingSampleData && (
+          <div className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-md text-center">
+            <p className="text-yellow-800">
+              Using sample product data for demonstration purposes.
+            </p>
+          </div>
+        )}
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Filters Sidebar */}
           <div className="lg:col-span-1">
@@ -281,9 +331,12 @@ const Shop = () => {
                 </select>
               </div>
             </div>
-            {error ? (
-              <div className="text-red-500 text-center py-12">{error}</div>
-            ) : loading ? (
+            {error && !loading && (
+              <div className="text-yellow-700 text-center p-4 mb-6 bg-yellow-50 border border-yellow-200 rounded">
+                {error}
+              </div>
+            )}
+            {loading ? (
               <div className="text-center py-12 text-neutral-500">
                 Loading products...
               </div>

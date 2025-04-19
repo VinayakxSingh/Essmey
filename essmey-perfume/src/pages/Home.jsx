@@ -99,7 +99,7 @@ const Home = () => {
               </Link>
               <Link
                 to="/about"
-                className="btn-secondary bg-transparent border-white text-white hover:bg-white hover:text-black"
+                className="essmey-hero-about-btn border-2 border-white text-white bg-black hover:bg-white hover:text-black transition duration-300"
               >
                 Our Story
               </Link>
@@ -121,11 +121,11 @@ const Home = () => {
               to="/shop?category=women"
               className="group relative overflow-hidden"
             >
-              <div className="aspect-[3/2] overflow-hidden bg-neutral-100">
+              <div className="h-[340px] md:h-[370px] overflow-hidden bg-neutral-100 flex items-center justify-center">
                 <img
                   src="/images/forher.png"
                   alt="Women's Perfumes"
-                  className="w-full h-300px object-cover transition-transform duration-700 group-hover:scale-105"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
               </div>
               <div className="absolute inset-0 bg-black bg-opacity-20 transition-opacity duration-300 group-hover:bg-opacity-30 flex items-center justify-center">
@@ -139,7 +139,7 @@ const Home = () => {
               to="/shop?category=men"
               className="group relative overflow-hidden"
             >
-              <div className="aspect-[3/2] overflow-hidden bg-neutral-100">
+              <div className="h-[340px] md:h-[370px] overflow-hidden bg-neutral-100 flex items-center justify-center">
                 <img
                   src="/images/forhim.png"
                   alt="Men's Perfumes"
@@ -157,7 +157,7 @@ const Home = () => {
               to="/shop?category=unisex"
               className="group relative overflow-hidden"
             >
-              <div className="aspect-[3/2] overflow-hidden bg-neutral-100">
+              <div className="h-[340px] md:h-[370px] overflow-hidden bg-neutral-100 flex items-center justify-center">
                 <img
                   src="https://images.unsplash.com/photo-1594035910387-fea47794261f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxzZWFyY2h8MzR8fHBlcmZ1bWV8ZW58MHx8MHx8&auto=format&fit=crop&w=500&q=60"
                   alt="Unisex Perfumes"

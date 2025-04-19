@@ -15,9 +15,12 @@ const ProductDetails = () => {
   const [quantity, setQuantity] = useState(1);
   const [selectedImg, setSelectedImg] = useState();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     setLoading(true);
+    setError(null);
+
     sanityClient
       .fetch(
         `*[_type == "product" && _id == $id][0]{
@@ -36,6 +39,12 @@ const ProductDetails = () => {
         { id }
       )
       .then((productResult) => {
+        if (!productResult) {
+          setError("Product not found");
+          setLoading(false);
+          return;
+        }
+
         setProduct(productResult);
         setSelectedImg(
           productResult &&
@@ -45,6 +54,11 @@ const ProductDetails = () => {
             : FALLBACK_IMAGE
         );
         setLoading(false);
+      })
+      .catch((err) => {
+        console.error("Error fetching product:", err);
+        setError("Failed to load product data. Please try again later.");
+        setLoading(false);
       });
   }, [id]);
 
@@ -52,10 +66,10 @@ const ProductDetails = () => {
     return <div className="pt-24 pb-16 text-center">Loading...</div>;
   }
 
-  if (!product) {
+  if (error || !product) {
     return (
       <div className="pt-24 pb-16 min-h-[60vh] flex flex-col items-center justify-center">
-        <h1 className="text-3xl font-bold">Product Not Found</h1>
+        <h1 className="text-3xl font-bold">{error || "Product Not Found"}</h1>
         <Link to="/shop" className="btn-primary mt-4">
           Back to Shop
         </Link>
@@ -71,6 +85,11 @@ const ProductDetails = () => {
     } else {
       addToWishlist(product);
     }
+  };
+
+  const handleAddToCart = () => {
+    addToCart(product, quantity);
+    // Optional: show a success message or notification
   };
 
   return (
@@ -178,22 +197,27 @@ const ProductDetails = () => {
               <input
                 type="number"
                 min={1}
-                max={product.stock}
+                max={product.stock || 10}
                 value={quantity}
                 onChange={(e) =>
                   setQuantity(
-                    Math.max(1, Math.min(product.stock, Number(e.target.value)))
+                    Math.max(
+                      1,
+                      Math.min(product.stock || 10, Number(e.target.value))
+                    )
                   )
                 }
                 className="w-16 border border-neutral-300 rounded px-2 py-1"
               />
               <button
                 className="btn-primary flex items-center gap-2"
-                onClick={() => addToCart(product, quantity)}
-                disabled={product.stock < 1}
+                onClick={handleAddToCart}
+                disabled={!product.stock || product.stock < 1}
               >
                 <ShoppingBagIcon className="h-5 w-5" />
-                {product.stock < 1 ? "Out of Stock" : "Add to Cart"}
+                {!product.stock || product.stock < 1
+                  ? "Out of Stock"
+                  : "Add to Cart"}
               </button>
             </div>
           </div>

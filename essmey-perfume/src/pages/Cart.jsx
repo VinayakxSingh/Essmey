@@ -2,6 +2,8 @@ import { useAppContext } from "../utils/context";
 import { Link, useNavigate } from "react-router-dom";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 
+const FALLBACK_IMAGE = "/images/product-1.jpg";
+
 const Cart = () => {
   const {
     cartItems,
@@ -17,7 +19,7 @@ const Cart = () => {
     <div className="pt-24 pb-16 min-h-[50vh]">
       <div className="container-custom">
         <h1 className="text-3xl font-serif font-bold mb-8">Your Cart</h1>
-        {cartCount === 0 ? (
+        {!cartItems || cartItems.length === 0 ? (
           <div className="text-center mt-16">
             <p className="text-xl mb-4">Your cart is empty.</p>
             <Link to="/shop" className="btn-primary">
@@ -40,71 +42,82 @@ const Cart = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {cartItems.map((item) => (
-                      <tr
-                        className="border-b group"
-                        key={`${item.id}-${item.selectedSize || ""}`}
-                      >
-                        <td className="p-3 flex items-center gap-4">
-                          <Link
-                            to={`/product/${item.id}`}
-                            className="block hover:opacity-90"
-                          >
-                            <img
-                              src={item.image}
-                              alt={item.name}
-                              className="w-16 h-20 object-cover rounded border"
-                            />
-                          </Link>
-                          <div>
+                    {cartItems.map((item) => {
+                      // Get the image URL from the item
+                      const imageUrl =
+                        item.images && item.images.length > 0
+                          ? item.images[0]
+                          : FALLBACK_IMAGE;
+
+                      return (
+                        <tr
+                          className="border-b group"
+                          key={`${item._id}-${item.selectedSize || ""}`}
+                        >
+                          <td className="p-3 flex items-center gap-4">
                             <Link
-                              to={`/product/${item.id}`}
-                              className="font-medium hover:underline"
+                              to={`/product/${item._id}`}
+                              className="block hover:opacity-90"
                             >
-                              {item.name}
+                              <img
+                                src={imageUrl}
+                                alt={item.name}
+                                className="w-16 h-20 object-cover rounded border"
+                                onError={(e) => {
+                                  e.target.src = FALLBACK_IMAGE;
+                                }}
+                              />
                             </Link>
-                            {item.selectedSize && (
-                              <div className="text-xs text-neutral-400">
-                                Size: {item.selectedSize}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td className="p-3 text-neutral-600">
-                          ${item.price.toFixed(2)}
-                        </td>
-                        <td className="p-3">
-                          <input
-                            type="number"
-                            min={1}
-                            max={99}
-                            value={item.quantity}
-                            className="w-14 border px-2 py-1 rounded"
-                            onChange={(e) =>
-                              updateCartQuantity(
-                                item.id,
-                                Number(e.target.value),
-                                item.selectedSize
-                              )
-                            }
-                          />
-                        </td>
-                        <td className="p-3 font-semibold">
-                          ${(item.price * item.quantity).toFixed(2)}
-                        </td>
-                        <td className="p-3 text-right">
-                          <button
-                            className="p-1 text-neutral-400 hover:bg-neutral-100 rounded-full"
-                            title="Remove"
-                            onClick={() =>
-                              removeFromCart(item.id, item.selectedSize)
-                            }
-                          >
-                            <XMarkIcon className="h-5 w-5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                            <div>
+                              <Link
+                                to={`/product/${item._id}`}
+                                className="font-medium hover:underline"
+                              >
+                                {item.name}
+                              </Link>
+                              {item.selectedSize && (
+                                <div className="text-xs text-neutral-400">
+                                  Size: {item.selectedSize}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="p-3 text-neutral-600">
+                            ₹{(item.price || 0).toFixed(2)}
+                          </td>
+                          <td className="p-3">
+                            <input
+                              type="number"
+                              min={1}
+                              max={item.stock || 99}
+                              value={item.quantity}
+                              className="w-14 border px-2 py-1 rounded"
+                              onChange={(e) =>
+                                updateCartQuantity(
+                                  item._id,
+                                  Number(e.target.value),
+                                  item.selectedSize
+                                )
+                              }
+                            />
+                          </td>
+                          <td className="p-3 font-semibold">
+                            ₹{((item.price || 0) * item.quantity).toFixed(2)}
+                          </td>
+                          <td className="p-3 text-right">
+                            <button
+                              className="p-1 text-neutral-400 hover:bg-neutral-100 rounded-full"
+                              title="Remove"
+                              onClick={() =>
+                                removeFromCart(item._id, item.selectedSize)
+                              }
+                            >
+                              <XMarkIcon className="h-5 w-5" />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -124,7 +137,7 @@ const Cart = () => {
               </h2>
               <div className="flex justify-between mb-1">
                 <span>Subtotal</span>
-                <span>${cartSubtotal.toFixed(2)}</span>
+                <span>₹{cartSubtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between mb-4 text-neutral-500 text-sm">
                 <span>Shipping</span>
@@ -132,7 +145,7 @@ const Cart = () => {
               </div>
               <div className="flex justify-between font-semibold text-lg mb-6">
                 <span>Total</span>
-                <span>${cartSubtotal.toFixed(2)}</span>
+                <span>₹{cartSubtotal.toFixed(2)}</span>
               </div>
               <button
                 className="btn-primary w-full mb-2"

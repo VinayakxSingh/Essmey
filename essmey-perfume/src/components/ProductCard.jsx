@@ -16,7 +16,7 @@ const ProductCard = ({ product }) => {
   const handleAddToCart = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    addToCart(product);
+    addToCart(product, 1); // Add 1 quantity as default from quick add
   };
 
   const handleWishlistClick = (e) => {
@@ -73,6 +73,7 @@ const ProductCard = ({ product }) => {
               onClick={handleAddToCart}
               className="p-1 rounded-full hover:bg-white hover:bg-opacity-20"
               aria-label="Add to Cart"
+              disabled={!product.stock || product.stock < 1}
             >
               <ShoppingBagIcon className="h-5 w-5" />
             </button>
@@ -82,7 +83,7 @@ const ProductCard = ({ product }) => {
           <h3 className="text-lg font-medium">{product.name}</h3>
           <div className="flex justify-between items-center mt-1">
             <span className="text-neutral-600">
-              ₹{product.price?.toFixed(2)}
+              ₹{(product.price || 0).toFixed(2)}
             </span>
             {product.category && (
               <span className="text-xs text-neutral-500 uppercase">
