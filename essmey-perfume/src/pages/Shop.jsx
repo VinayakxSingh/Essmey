@@ -1,14 +1,19 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { products } from "../utils/sampleData";
+import { sanityClient } from "../utils/sanity";
 import ProductCard from "../components/ProductCard";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 
-const Shop = ({ addToCart }) => {
+const Shop = () => {
   const [searchParams] = useSearchParams();
   const categoryParam = searchParams.get("category");
 
+  // Sanity-fetched product list
+  const [allProducts, setAllProducts] = useState([]);
   const [filteredProducts, setFilteredProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
   const [filters, setFilters] = useState({
     category: categoryParam || "all",
     sort: "featured",
@@ -18,34 +23,56 @@ const Shop = ({ addToCart }) => {
     isBestSeller: false,
   });
 
+  // Fetch products from sanity
   useEffect(() => {
-    // Apply filters
-    let filtered = [...products];
+    setLoading(true);
+    sanityClient
+      .fetch(
+        `*[_type == "product"]{
+        _id,
+        name,
+        category,
+        price,
+        stock,
+        featured,
+        bestSeller,
+        new,
+        description,
+        notes,
+        "images": images[].asset->url
+      }`
+      )
+      .then((data) => {
+        setAllProducts(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError("Could not load products");
+        setLoading(false);
+      });
+  }, []);
 
-    // Filter by category
-    if (filters.category !== "all") {
+  // Filtering and sorting logic
+  useEffect(() => {
+    let filtered = [...allProducts];
+
+    if (filters.category && filters.category !== "all") {
       filtered = filtered.filter((p) => p.category === filters.category);
     }
-
-    // Filter by price range
     if (filters.minPrice) {
       filtered = filtered.filter((p) => p.price >= Number(filters.minPrice));
     }
     if (filters.maxPrice) {
       filtered = filtered.filter((p) => p.price <= Number(filters.maxPrice));
     }
-
-    // Filter by new
     if (filters.isNew) {
       filtered = filtered.filter((p) => p.new);
     }
-
-    // Filter by best seller
     if (filters.isBestSeller) {
       filtered = filtered.filter((p) => p.bestSeller);
     }
 
-    // Apply sorting
+    // Sorting
     switch (filters.sort) {
       case "price-low":
         filtered.sort((a, b) => a.price - b.price);
@@ -63,15 +90,16 @@ const Shop = ({ addToCart }) => {
           .filter((p) => p.bestSeller)
           .concat(filtered.filter((p) => !p.bestSeller));
         break;
-      default: // featured
+      default:
         filtered = filtered
           .filter((p) => p.featured)
           .concat(filtered.filter((p) => !p.featured));
     }
 
     setFilteredProducts(filtered);
-  }, [filters]);
+  }, [allProducts, filters]);
 
+  // Update from URL params when component mounts
   useEffect(() => {
     if (categoryParam) {
       setFilters((prev) => ({ ...prev, category: categoryParam }));
@@ -111,7 +139,6 @@ const Shop = ({ addToCart }) => {
           </p>
         </div>
       </section>
-
       <div className="container-custom">
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Filters Sidebar */}
@@ -127,7 +154,6 @@ const Shop = ({ addToCart }) => {
                   <XMarkIcon className="h-4 w-4 ml-1" />
                 </button>
               </div>
-
               {/* Category Filter */}
               <div className="mb-6">
                 <h3 className="text-sm font-medium mb-3">Category</h3>
@@ -178,7 +204,6 @@ const Shop = ({ addToCart }) => {
                   </label>
                 </div>
               </div>
-
               {/* Price Range Filter */}
               <div className="mb-6">
                 <h3 className="text-sm font-medium mb-3">Price Range</h3>
@@ -202,7 +227,6 @@ const Shop = ({ addToCart }) => {
                   />
                 </div>
               </div>
-
               {/* Other Filters */}
               <div className="mb-6">
                 <h3 className="text-sm font-medium mb-3">Product Features</h3>
@@ -231,12 +255,13 @@ const Shop = ({ addToCart }) => {
               </div>
             </div>
           </div>
-
           {/* Products Grid */}
           <div className="lg:col-span-3">
             {/* Sort Controls */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-              <p className="mb-2 sm:mb-0">{filteredProducts.length} products</p>
+              <p className="mb-2 sm:mb-0">
+                {loading ? "Loading..." : `${filteredProducts.length} products`}
+              </p>
               <div className="flex items-center">
                 <label htmlFor="sort" className="mr-2 text-sm">
                   Sort by:
@@ -256,16 +281,16 @@ const Shop = ({ addToCart }) => {
                 </select>
               </div>
             </div>
-
-            {/* Products */}
-            {filteredProducts.length > 0 ? (
+            {error ? (
+              <div className="text-red-500 text-center py-12">{error}</div>
+            ) : loading ? (
+              <div className="text-center py-12 text-neutral-500">
+                Loading products...
+              </div>
+            ) : filteredProducts.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredProducts.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    addToCart={addToCart}
-                  />
+                  <ProductCard key={product._id} product={product} />
                 ))}
               </div>
             ) : (

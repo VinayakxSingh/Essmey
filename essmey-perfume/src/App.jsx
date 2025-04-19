@@ -1,7 +1,5 @@
 import { useState } from "react";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-
-// Pages
 import Home from "./pages/Home";
 import Shop from "./pages/Shop";
 import ProductDetails from "./pages/ProductDetails";
@@ -15,13 +13,9 @@ import NotFound from "./pages/NotFound";
 import Wishlist from "./pages/Wishlist";
 import SearchResults from "./pages/SearchResults";
 import Account from "./pages/Account";
-
-// Components
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import SearchModal from "./components/SearchModal";
-
-// Context
 import { AppProvider } from "./utils/context";
 import ScrollToTop from "./components/ScrollToTop";
 

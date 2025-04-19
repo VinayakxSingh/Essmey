@@ -2,39 +2,87 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import ProductCard from "../components/ProductCard";
-import { products, testimonials } from "../utils/sampleData";
+import { sanityClient } from "../utils/sanity";
 import { StarIcon } from "@heroicons/react/24/solid";
 
 const Home = () => {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [bestSellers, setBestSellers] = useState([]);
+  const [testimonials, setTestimonials] = useState([]);
   const [activeTestimonial, setActiveTestimonial] = useState(0);
+  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [loadingTestimonials, setLoadingTestimonials] = useState(true);
 
+  // Fetch all products from Sanity just once on mount
   useEffect(() => {
-    setFeaturedProducts(
-      products.filter((product) => product.featured).slice(0, 4)
-    );
-    setBestSellers(
-      products.filter((product) => product.bestSeller).slice(0, 4)
-    );
-
-    const intervalId = setInterval(() => {
-      setActiveTestimonial((prev) => (prev + 1) % testimonials.length);
-    }, 5000);
-
-    return () => clearInterval(intervalId);
+    setLoadingProducts(true);
+    sanityClient
+      .fetch(
+        `*[_type == "product"]{
+        _id,
+        name,
+        category,
+        price,
+        stock,
+        featured,
+        bestSeller,
+        new,
+        description,
+        notes,
+        "images": images[].asset->url
+      }`
+      )
+      .then((products) => {
+        setFeaturedProducts(products.filter((p) => p.featured).slice(0, 4));
+        setBestSellers(products.filter((p) => p.bestSeller).slice(0, 4));
+        setLoadingProducts(false);
+      });
   }, []);
+
+  // Fetch testimonials
+  useEffect(() => {
+    setLoadingTestimonials(true);
+    sanityClient
+      .fetch(
+        `*[_type == "testimonial"] | order(_createdAt desc)[0...6] {
+        _id,
+        name,
+        location,
+        rating,
+        text
+      }`
+      )
+      .then((data) => {
+        setTestimonials(data);
+        setLoadingTestimonials(false);
+      });
+  }, []);
+
+  // Rotating testimonials if there are at least 2
+  useEffect(() => {
+    if (testimonials.length > 1) {
+      const intervalId = setInterval(() => {
+        setActiveTestimonial((prev) => (prev + 1) % testimonials.length);
+      }, 5000);
+      return () => clearInterval(intervalId);
+    }
+  }, [testimonials]);
 
   return (
     <div className="pt-16">
       {/* Hero Section */}
       <section
-        className="relative h-[90vh] bg-cover bg-center bg-no-repeat flex items-center"
+        className="relative h-[90vh] flex items-center bg-cover bg-center bg-no-repeat"
         style={{ backgroundImage: "url('/images/essmeybg.jpg')" }}
       >
         <div className="absolute inset-0 bg-black bg-opacity-40"></div>
         <div className="container-custom relative z-10 flex flex-col justify-center h-full">
-          <div className="max-w-2xl text-white">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8 }}
+            className="max-w-2xl text-white"
+          >
             <h1 className="text-5xl md:text-6xl font-serif font-bold mb-4">
               ESSMEY
             </h1>
@@ -56,7 +104,7 @@ const Home = () => {
                 Our Story
               </Link>
             </div>
-          </div>
+          </motion.div>
         </div>
       </section>
 
@@ -68,15 +116,16 @@ const Home = () => {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* For Her */}
             <Link
               to="/shop?category=women"
               className="group relative overflow-hidden"
             >
-              <div className="aspect-[3/4] overflow-hidden">
+              <div className="aspect-[3/2] overflow-hidden bg-neutral-100">
                 <img
                   src="/images/forher.png"
                   alt="Women's Perfumes"
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  className="w-full h-300px object-cover transition-transform duration-700 group-hover:scale-105"
                 />
               </div>
               <div className="absolute inset-0 bg-black bg-opacity-20 transition-opacity duration-300 group-hover:bg-opacity-30 flex items-center justify-center">
@@ -85,16 +134,16 @@ const Home = () => {
                 </div>
               </div>
             </Link>
-
+            {/* For Him */}
             <Link
               to="/shop?category=men"
               className="group relative overflow-hidden"
             >
-              <div className="aspect-[3/4] overflow-hidden">
+              <div className="aspect-[3/2] overflow-hidden bg-neutral-100">
                 <img
                   src="/images/forhim.png"
                   alt="Men's Perfumes"
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
               </div>
               <div className="absolute inset-0 bg-black bg-opacity-20 transition-opacity duration-300 group-hover:bg-opacity-30 flex items-center justify-center">
@@ -103,16 +152,16 @@ const Home = () => {
                 </div>
               </div>
             </Link>
-
+            {/* Unisex */}
             <Link
               to="/shop?category=unisex"
               className="group relative overflow-hidden"
             >
-              <div className="aspect-[3/4] overflow-hidden">
+              <div className="aspect-[3/2] overflow-hidden bg-neutral-100">
                 <img
                   src="https://images.unsplash.com/photo-1594035910387-fea47794261f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxzZWFyY2h8MzR8fHBlcmZ1bWV8ZW58MHx8MHx8&auto=format&fit=crop&w=500&q=60"
                   alt="Unisex Perfumes"
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                 />
               </div>
               <div className="absolute inset-0 bg-black bg-opacity-20 transition-opacity duration-300 group-hover:bg-opacity-30 flex items-center justify-center">
@@ -135,11 +184,17 @@ const Home = () => {
             Discover our most coveted scents, handcrafted with passion
           </p>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {featuredProducts.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          {loadingProducts ? (
+            <div className="text-center text-neutral-500 py-8">
+              Loading products…
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {featuredProducts.map((product) => (
+                <ProductCard key={product._id} product={product} />
+              ))}
+            </div>
+          )}
 
           <div className="text-center mt-12">
             <Link to="/shop" className="btn-secondary">
@@ -181,7 +236,6 @@ const Home = () => {
                 src="/images/essmeybg.jpg"
                 alt="Perfume Making"
                 className="w-full h-full object-cover"
-                style={{ maxHeight: "500px" }}
               />
             </div>
           </div>
@@ -197,12 +251,17 @@ const Home = () => {
           <p className="text-center text-neutral-600 mb-12">
             Our most loved fragrances that keep our customers coming back
           </p>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {bestSellers.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))}
-          </div>
+          {loadingProducts ? (
+            <div className="text-center text-neutral-500 py-8">
+              Loading products…
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {bestSellers.map((product) => (
+                <ProductCard key={product._id} product={product} />
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
@@ -217,63 +276,53 @@ const Home = () => {
           </p>
 
           <div className="relative max-w-3xl mx-auto">
-            {testimonials.map((testimonial, index) => (
-              <div
-                key={testimonial.id}
-                className={`transition-opacity duration-500 text-center ${index === activeTestimonial ? "opacity-100" : "opacity-0 absolute inset-0"}`}
-              >
-                <div className="flex justify-center mb-4">
-                  {[...Array(5)].map((_, i) => (
-                    <StarIcon
-                      key={i}
-                      className={`h-5 w-5 ${i < testimonial.rating ? "text-yellow-400" : "text-gray-300"}`}
-                    />
-                  ))}
-                </div>
-                <blockquote className="text-xl italic mb-6">
-                  {testimonial.text}
-                </blockquote>
-                <p className="font-medium">
-                  {testimonial.name}, {testimonial.location}
-                </p>
+            {loadingTestimonials ? (
+              <div className="text-center text-neutral-500 py-12">
+                Loading testimonials…
               </div>
-            ))}
+            ) : testimonials.length > 0 ? (
+              testimonials.map((testimonial, index) => (
+                <div
+                  key={testimonial._id}
+                  className={`transition-opacity duration-500 text-center ${index === activeTestimonial ? "opacity-100" : "opacity-0 absolute inset-0 pointer-events-none"}`}
+                  style={{ minHeight: 150 }}
+                >
+                  <div className="flex justify-center mb-4">
+                    {[...Array(5)].map((_, i) => (
+                      <StarIcon
+                        key={i}
+                        className={`h-5 w-5 ${i < (testimonial.rating || 0) ? "text-yellow-400" : "text-gray-300"}`}
+                      />
+                    ))}
+                  </div>
+                  <blockquote className="text-xl italic mb-6">
+                    {testimonial.text}
+                  </blockquote>
+                  <p className="font-medium">
+                    {testimonial.name}
+                    {testimonial.location ? `, ${testimonial.location}` : ""}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-12 text-neutral-500">
+                No testimonials yet!
+              </div>
+            )}
 
-            <div className="flex justify-center mt-8 space-x-2">
-              {testimonials.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setActiveTestimonial(index)}
-                  className={`h-2 w-2 rounded-full ${index === activeTestimonial ? "bg-black" : "bg-gray-300"}`}
-                  aria-label={`View testimonial ${index + 1}`}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Newsletter */}
-      <section className="py-16 bg-light-cream">
-        <div className="container-custom">
-          <div className="max-w-2xl mx-auto text-center">
-            <h2 className="text-3xl font-serif font-medium mb-4">
-              JOIN OUR COMMUNITY
-            </h2>
-            <p className="mb-8">
-              Subscribe to our newsletter for exclusive offers, new fragrance
-              releases, and expert perfume tips.
-            </p>
-            <form className="flex flex-col sm:flex-row gap-2 max-w-md mx-auto">
-              <input
-                type="email"
-                placeholder="Your email address"
-                className="px-4 py-3 bg-white border border-neutral-300 focus:border-black outline-none flex-grow"
-              />
-              <button type="submit" className="btn-primary">
-                SUBSCRIBE
-              </button>
-            </form>
+            {/* Dots */}
+            {testimonials.length > 1 && (
+              <div className="flex justify-center mt-8 space-x-2">
+                {testimonials.map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setActiveTestimonial(index)}
+                    className={`h-2 w-2 rounded-full ${index === activeTestimonial ? "bg-black" : "bg-gray-300"}`}
+                    aria-label={`View testimonial ${index + 1}`}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </section>
