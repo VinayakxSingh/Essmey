@@ -23,6 +23,8 @@ import Footer from "./components/Footer";
 import SearchModal from "./components/SearchModal";
 import { AppProvider } from "./utils/context";
 import ScrollToTop from "./components/ScrollToTop";
+import Blog from "./pages/Blog";
+import BlogPost from "./pages/BlogPost";
 
 function App() {
   return (
@@ -51,6 +53,8 @@ function App() {
               <Route path="/terms" element={<Terms />} />
               <Route path="/privacy" element={<Privacy />} />
               <Route path="/track-order" element={<TrackOrder />} />
+              <Route path="/blog" element={<Blog />} />
+              <Route path="/blog/:slug" element={<BlogPost />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </main>

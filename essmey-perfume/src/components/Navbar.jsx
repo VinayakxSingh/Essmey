@@ -116,6 +116,12 @@ const Navbar = () => {
           >
             Contact
           </Link>
+          <Link
+            to="/blog"
+            className="nav-link hover:text-amber transition-colors"
+          >
+            Blog
+          </Link>
         </nav>
 
         {/* Icons */}
@@ -251,6 +257,13 @@ const Navbar = () => {
               onClick={() => setIsMobileMenuOpen(false)}
             >
               {isAuthenticated ? "My Account" : "Login / Register"}
+            </Link>
+            <Link
+              to="/blog"
+              className="nav-link py-2 hover:text-amber transition-colors"
+              onClick={() => setIsMobileMenuOpen(false)}
+            >
+              Blog
             </Link>
           </nav>
         </div>
