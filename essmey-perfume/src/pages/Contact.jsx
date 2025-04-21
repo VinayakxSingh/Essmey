@@ -5,7 +5,7 @@ import {
   ClockIcon,
 } from "@heroicons/react/24/outline";
 import { useState } from "react";
-import { client } from "../sanity/sanityClient"; // Update this path to wherever your client.js is located
+import { client } from "../sanity/sanityClient";
 const Contact = () => {
   const [formData, setFormData] = useState({
     name: "",
