@@ -5,6 +5,7 @@ import {visionTool} from '@sanity/vision'
 import product from './schemas/product'
 import testimonial from './schemas/testimonial'
 import blogPost from './schemas/blogPost'
+import contactmessage from './schemas/contactmessage'
 export default defineConfig({
   name: 'default',
   title: 'Essmey',
@@ -15,6 +16,6 @@ export default defineConfig({
   plugins: [structureTool(), visionTool()],
 
   schema: {
-    types: [product, testimonial, blogPost],
+    types: [product, testimonial, blogPost, contactmessage],
   },
 })

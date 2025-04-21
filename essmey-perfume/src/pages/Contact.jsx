@@ -1,11 +1,12 @@
-import { useState } from "react";
 import {
   MapPinIcon,
   PhoneIcon,
   EnvelopeIcon,
   ClockIcon,
 } from "@heroicons/react/24/outline";
-
+import { useState } from "react";
+import { createClient } from "../sanity/sanityClient";
+// import { createClient } from "@sanity/client";
 const Contact = () => {
   const [formData, setFormData] = useState({
     name: "",
@@ -26,7 +27,6 @@ const Contact = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
 
-    // Validate form
     if (!formData.name || !formData.email || !formData.message) {
       setFormStatus({
         type: "error",
@@ -35,14 +35,28 @@ const Contact = () => {
       return;
     }
 
-    // In a real application, you would send the form data to a server
-    // For this example, we'll just simulate a successful submission
-    setFormStatus({
-      type: "success",
-      message: "Thank you for your message! We will get back to you soon.",
-    });
+    client
+      .create({
+        _type: "contactData", // Reference your Sanity schema
+        name: formData.name,
+        email: formData.email,
+        subject: formData.subject,
+        message: formData.message,
+      })
+      .then((res) => {
+        setFormStatus({
+          type: "success",
+          message: "Thank you for your message! We will get back to you soon.",
+        });
+      })
+      .catch((err) => {
+        console.error("Error:", err);
+        setFormStatus({
+          type: "error",
+          message: "Something went wrong. Please try again later.",
+        });
+      });
 
-    // Reset form
     setFormData({
       name: "",
       email: "",
