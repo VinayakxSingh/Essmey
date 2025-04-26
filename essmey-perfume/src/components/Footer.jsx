@@ -196,5 +196,7 @@ const Footer = () => {
     </footer>
   );
 };
-
 export default Footer;
+
+
+// helo this is sample pls
