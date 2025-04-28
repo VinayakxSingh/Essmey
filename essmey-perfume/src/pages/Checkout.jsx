@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useAppContext } from "../utils/context";
 import { useNavigate } from "react-router-dom";
+import { openRazorpay } from "../utils/razorpay";
 
 const statesIndia = [
   "Andhra Pradesh",
@@ -53,7 +54,6 @@ const Checkout = () => {
   const formRef = useRef();
   const navigate = useNavigate();
 
-  // Prefill if logged in
   const userPrefill = user
     ? {
         name: user.name || "",
@@ -86,12 +86,10 @@ const Checkout = () => {
     );
   }
 
-  // Input handler
   function handleInput(e) {
     setForm({ ...form, [e.target.name]: e.target.value });
   }
 
-  // Basic front-end validation
   function validate(fields) {
     let errs = {};
     if (!fields.name || fields.name.length < 2) errs.name = "Enter your name";
@@ -107,15 +105,26 @@ const Checkout = () => {
     return errs;
   }
 
-  // Place order handler
-  function handleOrder(e) {
+  async function handleOrder(e) {
     e.preventDefault();
     const valErrors = validate(form);
     setErrors(valErrors);
     if (Object.keys(valErrors).length > 0) return;
 
-    // Prepare local order for future Shiprocket API
     const orderID = randomID();
+
+    const orderDetails = {
+      amount: cartSubtotal, // in ₹
+      customerName: form.name,
+      customerEmail: form.email,
+      customerPhone: form.phone,
+      customerAddress: form.address,
+      razorpayOrderId: null, // later if backend created
+    };
+
+    openRazorpay(orderDetails);
+
+    // Save local order immediately (assuming payment success for now)
     const order = {
       id: orderID,
       status: "placed",
@@ -126,7 +135,6 @@ const Checkout = () => {
       items: cartItems,
       total: cartSubtotal,
     };
-    // Save locally
     const prevOrders = JSON.parse(
       localStorage.getItem("essmey_orders") || "[]"
     );
@@ -134,35 +142,17 @@ const Checkout = () => {
       "essmey_orders",
       JSON.stringify([order, ...prevOrders])
     );
-    setPlacedOrder(order);
     clearCart();
+    navigate("/thank-you");
   }
 
   if (placedOrder) {
-    return (
-      <div className="pt-28 pb-20 min-h-[60vh] flex flex-col items-center">
-        <h2 className="text-3xl font-serif font-bold mb-4">
-          Thank You for Your Order!
-        </h2>
-        <p className="mb-2">
-          Order ID:{" "}
-          <span className="font-mono text-blue-700">{placedOrder.id}</span>
-        </p>
-        <p className="mb-6">
-          You'll receive order updates via email/SMS (demo only). For real
-          shipments, Shiprocket integration goes here!
-        </p>
-        <button className="btn-primary" onClick={() => navigate("/")}>
-          Back to Home
-        </button>
-      </div>
-    );
+    return null;
   }
 
   return (
     <div className="pt-24 pb-16 min-h-[70vh]">
       <div className="container-custom grid gap-12 md:grid-cols-3">
-        {/* Left: Shipping form */}
         <form
           ref={formRef}
           className="md:col-span-2 bg-white border rounded-lg shadow p-8"
@@ -235,6 +225,7 @@ const Checkout = () => {
               )}
             </div>
           </div>
+
           <div className="mb-4">
             <label className="font-medium">Address*</label>
             <textarea
@@ -248,6 +239,7 @@ const Checkout = () => {
               <div className="text-red-500 text-xs mt-1">{errors.address}</div>
             )}
           </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
             <div>
               <label className="font-medium">City*</label>
@@ -283,6 +275,7 @@ const Checkout = () => {
               )}
             </div>
           </div>
+
           <div className="mb-10">
             <label className="font-medium">Order Notes</label>
             <textarea
@@ -293,17 +286,18 @@ const Checkout = () => {
               placeholder="Anything extra for your order? (optional)"
             />
           </div>
+
           <button type="submit" className="btn-primary w-full">
-            Place Order
+            Pay and Place Order
           </button>
         </form>
-        {/* Right: Cart summary */}
+
         <div className="bg-white border rounded-lg shadow p-8">
           <h2 className="text-lg font-serif font-semibold mb-5">Your Order</h2>
 
           <div className="space-y-3 mb-4">
-            {cartItems.map((item) => (
-              <div key={item.id} className="flex items-center gap-3">
+            {cartItems.map((item, index) => (
+              <div key={item.id || index} className="flex items-center gap-3">
                 <img
                   src={item.image}
                   alt={item.name}
@@ -321,6 +315,7 @@ const Checkout = () => {
               </div>
             ))}
           </div>
+
           <div className="flex justify-between font-semibold border-t pt-4 mt-6 mb-2">
             <span>Total</span>
             <span>₹{cartSubtotal.toFixed(2)}</span>

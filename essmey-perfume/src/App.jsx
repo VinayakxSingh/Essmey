@@ -27,7 +27,7 @@ import ScrollToTop from "./components/ScrollToTop";
 import Blog from "./pages/Blog";
 import BlogPost from "./pages/BlogPost";
 import ForgotPassword from "./pages/ForgotPassword";
-
+import ThankYou from "./pages/ThankYou";
 function App() {
   return (
     <AppProvider>
@@ -59,6 +59,7 @@ function App() {
                 <Route path="/track-order" element={<TrackOrder />} />
                 <Route path="/blog" element={<Blog />} />
                 <Route path="/blog/:slug" element={<BlogPost />} />
+                <Route path="/thank-you" element={<ThankYou />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </main>
