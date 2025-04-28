@@ -128,10 +128,11 @@ const SearchModal = () => {
         {query && (
           <div className="p-4">
             <p className="text-sm text-neutral-500 mb-4">
-              {searchResults.length} results for "{query}"
+              {Array.isArray(searchResults) ? searchResults.length : 0} results
+              for "{query}"
             </p>
 
-            {searchResults.length > 0 ? (
+            {Array.isArray(searchResults) && searchResults.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {searchResults.slice(0, 4).map((product) => (
                   <div
@@ -160,7 +161,7 @@ const SearchModal = () => {
               <p>No products found matching your search.</p>
             )}
 
-            {searchResults.length > 4 && (
+            {Array.isArray(searchResults) && searchResults.length > 4 && (
               <div className="mt-4 text-center">
                 <button
                   onClick={() => {

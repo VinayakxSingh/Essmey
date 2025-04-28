@@ -33,7 +33,9 @@ const Wishlist = () => {
                 <Link to={`/product/${item._id}`} className="block mb-2">
                   <img
                     src={
-                      item.image ||
+                      (item.images && item.images.length > 0
+                        ? item.images[0]
+                        : null) ||
                       "https://via.placeholder.com/300x400?text=No+Image"
                     }
                     alt={item.name}

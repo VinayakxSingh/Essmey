@@ -22,45 +22,50 @@ import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import SearchModal from "./components/SearchModal";
 import { AppProvider } from "./utils/context";
+import { AuthProvider } from "./utils/AuthContext";
 import ScrollToTop from "./components/ScrollToTop";
 import Blog from "./pages/Blog";
 import BlogPost from "./pages/BlogPost";
+import ForgotPassword from "./pages/ForgotPassword";
 
 function App() {
   return (
     <AppProvider>
-      <Router>
-        <ScrollToTop />
-        <div className="flex flex-col min-h-screen">
-          <Navbar />
-          <SearchModal />
-          <main className="flex-grow">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/shop" element={<Shop />} />
-              <Route path="/product/:id" element={<ProductDetails />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/cart" element={<Cart />} />
-              <Route path="/checkout" element={<Checkout />} />
-              <Route path="/admin/*" element={<Admin />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/wishlist" element={<Wishlist />} />
-              <Route path="/search" element={<SearchResults />} />
-              <Route path="/account/*" element={<Account />} />
-              <Route path="/shipping" element={<Shipping />} />
-              <Route path="/faq" element={<FAQ />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/track-order" element={<TrackOrder />} />
-              <Route path="/blog" element={<Blog />} />
-              <Route path="/blog/:slug" element={<BlogPost />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </main>
-          <Footer />
-        </div>
-      </Router>
+      <AuthProvider>
+        <Router>
+          <ScrollToTop />
+          <div className="flex flex-col min-h-screen">
+            <Navbar />
+            <SearchModal />
+            <main className="flex-grow">
+              <Routes>
+                <Route path="/" element={<Home />} />
+                <Route path="/shop" element={<Shop />} />
+                <Route path="/product/:id" element={<ProductDetails />} />
+                <Route path="/about" element={<About />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/cart" element={<Cart />} />
+                <Route path="/checkout" element={<Checkout />} />
+                <Route path="/admin/*" element={<Admin />} />
+                <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/wishlist" element={<Wishlist />} />
+                <Route path="/search" element={<SearchResults />} />
+                <Route path="/account/*" element={<Account />} />
+                <Route path="/shipping" element={<Shipping />} />
+                <Route path="/faq" element={<FAQ />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/track-order" element={<TrackOrder />} />
+                <Route path="/blog" element={<Blog />} />
+                <Route path="/blog/:slug" element={<BlogPost />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </main>
+            <Footer />
+          </div>
+        </Router>
+      </AuthProvider>
     </AppProvider>
   );
 }

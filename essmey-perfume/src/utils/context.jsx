@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
+import { sanityClient } from "./sanity";
 
 const AppContext = createContext();
 
@@ -7,6 +8,9 @@ export const AppProvider = ({ children }) => {
   const [wishlistItems, setWishlistItems] = useState([]);
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Search state
+  const [searchResults, setSearchResults] = useState([]);
 
   // Load cart and wishlist from localStorage on mount
   useEffect(() => {
@@ -118,6 +122,30 @@ export const AppProvider = ({ children }) => {
     0
   );
 
+  // Search function using Sanity
+  const handleSearch = async (query) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    try {
+      const lowerQuery = query.toLowerCase();
+      const groqQuery = `*[_type == "product" && name match $searchTerm]{
+        _id,
+        name,
+        price,
+        "image": images[0].asset->url
+      }`;
+      const results = await sanityClient.fetch(groqQuery, {
+        searchTerm: "*" + lowerQuery + "*",
+      });
+      setSearchResults(results);
+    } catch (error) {
+      console.error("Error fetching search results from Sanity:", error);
+      setSearchResults([]);
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -137,6 +165,8 @@ export const AppProvider = ({ children }) => {
         isAuthenticated,
         setUser,
         setIsAuthenticated,
+        searchResults,
+        handleSearch,
       }}
     >
       {children}

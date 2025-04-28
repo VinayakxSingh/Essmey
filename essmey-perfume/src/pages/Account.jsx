@@ -1,4 +1,4 @@
-import { useAppContext } from "../utils/context";
+import { useAuth } from "../utils/AuthContext";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 
@@ -10,7 +10,7 @@ const getOrders = (email) => {
 };
 
 export default function Account() {
-  const { user, isAuthenticated, logout } = useAppContext();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
 
@@ -18,7 +18,7 @@ export default function Account() {
     if (user?.email) setOrders(getOrders(user.email));
   }, [user]);
 
-  if (!isAuthenticated) {
+  if (!user) {
     return <Navigate to="/login" replace />;
   }
 
@@ -27,13 +27,7 @@ export default function Account() {
       <h1 className="text-3xl font-serif font-bold mb-6">My Account</h1>
       <div className="bg-white border rounded-lg shadow p-8 mb-10">
         <div className="mb-2">
-          <span className="font-medium">Name:</span> {user.name}
-        </div>
-        <div className="mb-2">
           <span className="font-medium">Email:</span> {user.email}
-        </div>
-        <div className="mb-2">
-          <span className="font-medium">Phone:</span> {user.phone}
         </div>
         <button
           className="btn-secondary mt-6"
