@@ -10,48 +10,35 @@ export const AppProvider = ({ children }) => {
 
   // Load cart and wishlist from localStorage on mount
   useEffect(() => {
-    const savedCart = localStorage.getItem("cart");
-    const savedWishlist = localStorage.getItem("wishlist");
-
-    if (savedCart) {
-      try {
-        setCartItems(JSON.parse(savedCart));
-      } catch (error) {
-        console.error("Error parsing cart from localStorage:", error);
-      }
-    }
-
-    if (savedWishlist) {
-      try {
-        setWishlistItems(JSON.parse(savedWishlist));
-      } catch (error) {
-        console.error("Error parsing wishlist from localStorage:", error);
-      }
+    try {
+      const savedCart = JSON.parse(localStorage.getItem("cart")) || [];
+      const savedWishlist = JSON.parse(localStorage.getItem("wishlist")) || [];
+      setCartItems(savedCart);
+      setWishlistItems(savedWishlist);
+    } catch (error) {
+      console.error("Error loading from localStorage:", error);
     }
   }, []);
 
   // Save cart and wishlist to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem("cart", JSON.stringify(cartItems));
-  }, [cartItems]);
-
-  useEffect(() => {
     localStorage.setItem("wishlist", JSON.stringify(wishlistItems));
-  }, [wishlistItems]);
+  }, [cartItems, wishlistItems]);
 
-  // Wishlist Functions (use _id for Sanity)
+  // Wishlist Functions
   const isInWishlist = (productId) => {
     return wishlistItems.some((item) => item._id === productId);
   };
 
   const addToWishlist = (product) => {
     if (!isInWishlist(product._id)) {
-      setWishlistItems([...wishlistItems, product]);
+      setWishlistItems((prev) => [...prev, product]);
     }
   };
 
   const removeFromWishlist = (productId) => {
-    setWishlistItems(wishlistItems.filter((item) => item._id !== productId));
+    setWishlistItems((prev) => prev.filter((item) => item._id !== productId));
   };
 
   // Cart Functions
@@ -64,33 +51,33 @@ export const AppProvider = ({ children }) => {
   };
 
   const addToCart = (product, quantity = 1, selectedSize = null) => {
-    const existingItemIndex = cartItems.findIndex(
-      (item) =>
-        item._id === product._id &&
-        (selectedSize === null || item.selectedSize === selectedSize)
-    );
+    setCartItems((prev) => {
+      const existingItemIndex = prev.findIndex(
+        (item) =>
+          item._id === product._id &&
+          (selectedSize === null || item.selectedSize === selectedSize)
+      );
 
-    if (existingItemIndex >= 0) {
-      // Item already exists in cart, update quantity
-      const updatedCart = [...cartItems];
-      updatedCart[existingItemIndex].quantity += quantity;
-      setCartItems(updatedCart);
-    } else {
-      // Add new item to cart
-      setCartItems([
-        ...cartItems,
-        {
-          ...product,
-          quantity,
-          selectedSize,
-        },
-      ]);
-    }
+      if (existingItemIndex >= 0) {
+        const updatedCart = [...prev];
+        updatedCart[existingItemIndex].quantity += quantity;
+        return updatedCart;
+      } else {
+        return [
+          ...prev,
+          {
+            ...product,
+            quantity,
+            selectedSize,
+          },
+        ];
+      }
+    });
   };
 
   const removeFromCart = (productId, selectedSize = null) => {
-    setCartItems(
-      cartItems.filter(
+    setCartItems((prev) =>
+      prev.filter(
         (item) =>
           !(
             item._id === productId &&
@@ -106,24 +93,24 @@ export const AppProvider = ({ children }) => {
       return;
     }
 
-    const updatedCart = cartItems.map((item) => {
-      if (
-        item._id === productId &&
-        (selectedSize === null || item.selectedSize === selectedSize)
-      ) {
-        return { ...item, quantity };
-      }
-      return item;
-    });
-
-    setCartItems(updatedCart);
+    setCartItems((prev) =>
+      prev.map((item) => {
+        if (
+          item._id === productId &&
+          (selectedSize === null || item.selectedSize === selectedSize)
+        ) {
+          return { ...item, quantity };
+        }
+        return item;
+      })
+    );
   };
 
   const clearCart = () => {
     setCartItems([]);
   };
 
-  // Calculate cart stats
+  // Cart Stats
   const cartCount = cartItems.reduce((total, item) => total + item.quantity, 0);
 
   const cartSubtotal = cartItems.reduce(

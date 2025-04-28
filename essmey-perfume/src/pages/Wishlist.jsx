@@ -3,8 +3,7 @@ import { Link } from "react-router-dom";
 import { XMarkIcon, ShoppingBagIcon } from "@heroicons/react/24/outline";
 
 const Wishlist = () => {
-  const { wishlistItems, removeFromWishlist, addToCart, isInWishlist } =
-    useAppContext();
+  const { wishlistItems, removeFromWishlist, addToCart } = useAppContext();
 
   return (
     <div className="pt-24 pb-16 min-h-[50vh]">
@@ -21,22 +20,26 @@ const Wishlist = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {wishlistItems.map((item) => (
               <div
-                key={item.id}
+                key={item._id}
                 className="relative border rounded-lg overflow-hidden p-4 bg-white flex flex-col"
               >
                 <button
                   className="absolute top-2 right-2 p-1 bg-white bg-opacity-90 rounded-full hover:bg-red-100"
-                  onClick={() => removeFromWishlist(item.id)}
+                  onClick={() => removeFromWishlist(item._id)}
                   title="Remove from wishlist"
                 >
                   <XMarkIcon className="h-5 w-5 text-black" />
                 </button>
-                <Link to={`/product/${item.id}`} className="block mb-2">
+                <Link to={`/product/${item._id}`} className="block mb-2">
                   <img
-                    src={item.image}
+                    src={
+                      item.image ||
+                      "https://via.placeholder.com/300x400?text=No+Image"
+                    }
                     alt={item.name}
                     className="w-full h-60 object-cover rounded mb-3"
                   />
+
                   <h2 className="font-medium text-lg mb-1">{item.name}</h2>
                   <span className="block text-sm text-neutral-500 mb-2">
                     ${item.price.toFixed(2)}
