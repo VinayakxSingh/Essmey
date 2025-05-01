@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { sanityClient, sanityWriteClient } from "../utils/sanity"; // Updated import
 import { Link } from "react-router-dom";
+import { client } from "../utils/sanity";
 
 function Blog() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [writeMode, setWriteMode] = useState(false); // Added state for write mode
+  const [writeMode, setWriteMode] = useState(false);
   const [form, setForm] = useState({
     title: "",
     excerpt: "",
@@ -16,7 +16,7 @@ function Blog() {
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
-    sanityClient
+    client
       .fetch(
         `*[_type == "blogPost"] | order(publishedAt desc) {
         _id,
@@ -49,43 +49,53 @@ function Blog() {
     e.preventDefault();
     setCreating(true);
     try {
-      await sanityWriteClient.create({
+      const postData = {
         _type: "blogPost",
         title: form.title,
         excerpt: form.excerpt,
-        slug: {
-          current: form.title
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, "-")
-            .replace(/^-+|-+$/g, ""),
-        },
+        content: form.content,
+        categories: form.categories.split(",").map((cat) => cat.trim()),
         publishedAt: new Date().toISOString(),
-        categories: form.categories.split(",").map((c) => c.trim()),
-        author: { name: "Guest Author" },
-        content: [
-          {
-            _type: "block",
-            children: [{ _type: "span", text: form.content }],
-          },
-        ],
-      });
-      setWriteMode(false);
+        author: {
+          _type: "reference",
+          _ref: "author-id", // You'll need to replace this with the actual author ID
+        },
+      };
+
+      await client.create(postData);
+      console.log("Post created successfully!");
       setForm({ title: "", excerpt: "", content: "", categories: "" });
-      // re-fetch posts
-      setLoading(true);
-      sanityClient
-        .fetch(
-          `*[_type == "blogPost"] | order(publishedAt desc) { _id, title, slug, mainImage{asset->{url}}, excerpt, publishedAt, author, categories }`
-        )
-        .then((data) => {
-          setPosts(data);
-          setLoading(false);
-        });
-    } catch {
-      alert("Failed to publish post.");
+      setWriteMode(false);
+      // Refresh posts
+      const updatedPosts = await client.fetch(
+        `*[_type == "blogPost"] | order(publishedAt desc) {
+          _id,
+          title,
+          slug,
+          mainImage{
+            asset->{url}
+          },
+          excerpt,
+          publishedAt,
+          author,
+          categories
+        }`
+      );
+      setPosts(updatedPosts);
+    } catch (error) {
+      console.error("Failed to create post. Please try again.", error);
+    } finally {
       setCreating(false);
     }
-    setCreating(false);
+  };
+
+  const handlePublish = async (postId) => {
+    try {
+      await client.patch(postId).set({ published: true }).commit();
+      fetchPosts();
+    } catch (err) {
+      console.error("Error publishing post:", err);
+    }
   };
 
   if (loading) return <div className="text-center py-10">Loading...</div>;

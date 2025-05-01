@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { sanityClient } from "../utils/sanity";
+import { client } from "../utils/sanity";
 import { PortableText } from "@portabletext/react";
 
 function BlogPost() {
@@ -10,26 +10,19 @@ function BlogPost() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    sanityClient
-      .fetch(
-        `*[_type == "blogPost" && slug.current == $slug][0]{
-          title,
-          publishedAt,
-          author,
-          mainImage{asset->{url}},
-          content,
-          categories
-        }`,
-        { slug }
-      )
-      .then((data) => {
-        setPost(data);
-        setLoading(false);
-      })
-      .catch((e) => {
-        setError("Could not fetch blog post");
-        setLoading(false);
-      });
+    const fetchPost = async () => {
+      try {
+        const post = await client.fetch(
+          `*[_type == "post" && slug.current == $slug][0]`,
+          { slug }
+        );
+        setPost(post);
+      } catch (error) {
+        console.error("Error fetching post:", error);
+      }
+    };
+
+    fetchPost();
   }, [slug]);
 
   if (loading) return <div className="text-center py-10">Loading...</div>;

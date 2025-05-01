@@ -5,14 +5,63 @@ import {
   FaPinterest,
   FaTwitter,
 } from "react-icons/fa";
+import { useState } from "react";
+import { client } from "../utils/sanity";
 
 const Footer = () => {
   const currentYear = new Date().getFullYear();
+  const [email, setEmail] = useState("");
+  const [message, setMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false); // Track submission status
+
+  // Simple email validation
+  const isEmailValid = email.match(
+    /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+  );
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!isEmailValid) {
+      setMessage("Please enter a valid email address.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Enhanced query to check for email existence
+      const existing = await client.fetch(
+        `*[_type == "newsletter" && email == $email]`,
+        { email }
+      );
+
+      // Check if any existing records are found
+      if (existing.length > 0) {
+        setMessage("You're already subscribed.");
+        setIsSubmitting(false);
+        return;
+      }
+
+      await client.create({
+        _type: "newsletter",
+        email,
+        subscribedAt: new Date().toISOString(),
+      });
+
+      setMessage("Thank you for subscribing!");
+      setEmail("");
+    } catch (error) {
+      console.error("Subscription error:", error);
+      setMessage("Something went wrong. Please try again later.");
+    } finally {
+      setIsSubmitting(false); // Ensure button is always re-enabled
+    }
+  };
 
   return (
     <footer className="bg-[#1a1208] text-white pt-16 pb-8">
       <div className="container-custom">
-        {/* Top Section with Decorative Element */}
         <div className="flex justify-center mb-12">
           <div className="w-28 h-0.5 bg-amber"></div>
         </div>
@@ -30,19 +79,26 @@ const Footer = () => {
             <h4 className="text-sm font-medium mb-3 text-amber">
               SUBSCRIBE TO OUR NEWSLETTER
             </h4>
-            <form className="flex flex-col sm:flex-row gap-2">
+            <form
+              className="flex flex-col sm:flex-row gap-2"
+              onSubmit={handleSubmit}
+            >
               <input
                 type="email"
                 placeholder="Your email address"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 className="px-4 py-3 bg-[#2a2318] text-white border border-[#3a3328] focus:border-amber outline-none flex-grow transition-colors"
               />
               <button
                 type="submit"
                 className="px-6 py-3 bg-amber text-white font-medium hover:bg-amber/90 transition-colors"
+                disabled={isSubmitting || !isEmailValid || email === ""} // Disable button if submitting, invalid email, or empty
               >
-                SUBSCRIBE
+                {isSubmitting ? "Subscribing..." : "Subscribe"}
               </button>
             </form>
+            {message && <p className="mt-2 text-sm text-amber">{message}</p>}
           </div>
 
           {/* Quick Links */}
@@ -156,7 +212,7 @@ const Footer = () => {
         <div className="mt-16 pt-8 border-t border-[#3a3328] flex flex-col md:flex-row justify-between items-center">
           <div className="flex space-x-6 mb-6 md:mb-0">
             <a
-              href="https://instagram.com"
+              href="https://www.instagram.com/essmey_unveil"
               target="_blank"
               rel="noreferrer"
               className="text-neutral-400 hover:text-amber transition-colors hover:-translate-y-1 transform duration-300"
@@ -196,7 +252,5 @@ const Footer = () => {
     </footer>
   );
 };
+
 export default Footer;
-
-
-// helo this is sample pls

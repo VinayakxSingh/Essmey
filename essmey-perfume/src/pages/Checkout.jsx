@@ -1,7 +1,11 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useAppContext } from "../utils/context";
 import { useNavigate } from "react-router-dom";
 import { openRazorpay } from "../utils/razorpay";
+import { client } from "../utils/sanity";
+import { generateOrderId } from "../utils/orderId";
+import { useAuth } from "../utils/AuthContext";
+import { useToastContext } from "../utils/ToastContext";
 
 const statesIndia = [
   "Andhra Pradesh",
@@ -37,28 +41,38 @@ const statesIndia = [
   "Puducherry",
 ];
 
-function randomID() {
-  return (
-    "ESS" +
-    String(Date.now()).slice(-6) +
-    Math.floor(Math.random() * 100)
-      .toString()
-      .padStart(2, "0")
-  );
-}
-
 const Checkout = () => {
-  const { cartItems, cartSubtotal, user, isAuthenticated, clearCart } =
-    useAppContext();
+  const {
+    cartItems,
+    cartSubtotal,
+    clearCart,
+    error: contextError,
+  } = useAppContext();
+  const { user, isLoading } = useAuth();
+  const { addToast } = useToastContext();
   const [placedOrder, setPlacedOrder] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const formRef = useRef();
   const navigate = useNavigate();
 
+  // Handle authentication check and navigation
+  useEffect(() => {
+    if (!isLoading && !user) {
+      navigate("/login", {
+        state: {
+          from: "/checkout",
+          message: "Please login to proceed with checkout",
+        },
+      });
+    }
+  }, [user, isLoading, navigate]);
+
   const userPrefill = user
     ? {
-        name: user.name || "",
+        name: user.displayName || "",
         email: user.email || "",
-        phone: user.phone || "",
+        phone: user.phoneNumber || "",
       }
     : {};
 
@@ -75,9 +89,22 @@ const Checkout = () => {
 
   const [errors, setErrors] = useState({});
 
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="pt-28 pb-20 min-h-[50vh] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto"></div>
+          <p className="mt-4 text-lg">Loading checkout...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show empty cart message if cart is empty and no order is placed
   if (cartItems.length === 0 && !placedOrder) {
     return (
-      <div className="pt-28 pb-20 min-h-[50vh] text-center">
+      <div className="pt-28 pb-20 min-h-[50vh] flex flex-col items-center justify-center">
         <h2 className="text-2xl mb-3">Your cart is empty.</h2>
         <button className="btn-primary" onClick={() => navigate("/shop")}>
           Back to Shop
@@ -87,7 +114,16 @@ const Checkout = () => {
   }
 
   function handleInput(e) {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    if (name === "phone" || name === "pincode") {
+      // Only allow numbers
+      if (/[^0-9]/.test(value) && value !== "") return;
+    }
+    setForm({ ...form, [name]: value });
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors({ ...errors, [name]: "" });
+    }
   }
 
   function validate(fields) {
@@ -95,7 +131,8 @@ const Checkout = () => {
     if (!fields.name || fields.name.length < 2) errs.name = "Enter your name";
     if (!fields.email || !fields.email.includes("@"))
       errs.email = "Enter valid email";
-    if (!fields.phone || fields.phone.length < 10) errs.phone = "Enter phone";
+    if (!fields.phone || fields.phone.length < 10)
+      errs.phone = "Enter phone (10+ digits)";
     if (!fields.address || fields.address.length < 4)
       errs.address = "Enter full address";
     if (!fields.pincode || fields.pincode.length !== 6)
@@ -105,49 +142,112 @@ const Checkout = () => {
     return errs;
   }
 
-  async function handleOrder(e) {
+  const handleOrder = async (e) => {
     e.preventDefault();
-    const valErrors = validate(form);
-    setErrors(valErrors);
-    if (Object.keys(valErrors).length > 0) return;
+    setLoading(true);
+    setError(null);
 
-    const orderID = randomID();
+    // Validate form before proceeding
+    const validationErrors = validate(form);
+    if (Object.keys(validationErrors).length > 0) {
+      setErrors(validationErrors);
+      setLoading(false);
+      return;
+    }
 
-    const orderDetails = {
-      amount: cartSubtotal, // in ₹
-      customerName: form.name,
-      customerEmail: form.email,
-      customerPhone: form.phone,
-      customerAddress: form.address,
-      razorpayOrderId: null, // later if backend created
-    };
+    try {
+      const orderData = {
+        _type: "order",
+        items: cartItems.map((item) => ({
+          _type: "orderItem",
+          product: {
+            _type: "reference",
+            _ref: item._id,
+          },
+          quantity: item.quantity,
+          price: item.price,
+        })),
+        totalAmount: cartSubtotal,
+        shippingAddress: form,
+        paymentMethod: "razorpay",
+        status: "pending",
+        user: {
+          _type: "reference",
+          _ref: user._id,
+        },
+      };
 
-    openRazorpay(orderDetails);
+      // First create the order in Sanity
+      const createdOrder = await client.create(orderData);
+      
+      // Then open Razorpay payment
+      const response = await openRazorpay({
+        amount: cartSubtotal * 100,
+        currency: "INR",
+        orderId: createdOrder._id,
+        name: "Essmey Perfume",
+        description: "Payment for your order",
+        prefill: {
+          name: form.name,
+          email: form.email,
+          contact: form.phone,
+        },
+      });
 
-    // Save local order immediately (assuming payment success for now)
-    const order = {
-      id: orderID,
-      status: "placed",
-      placedAt: new Date().toISOString(),
-      customer: {
-        ...form,
-      },
-      items: cartItems,
-      total: cartSubtotal,
-    };
-    const prevOrders = JSON.parse(
-      localStorage.getItem("essmey_orders") || "[]"
-    );
-    localStorage.setItem(
-      "essmey_orders",
-      JSON.stringify([order, ...prevOrders])
-    );
-    clearCart();
-    navigate("/thank-you");
-  }
+      if (response) {
+        // Update the order with payment details
+        await client
+          .patch(createdOrder._id)
+          .set({
+            status: "paid",
+            paymentId: response.razorpay_payment_id,
+            orderId: response.razorpay_order_id,
+            signature: response.razorpay_signature,
+          })
+          .commit();
+
+        clearCart();
+        setPlacedOrder(response.razorpay_order_id);
+        addToast("Payment successful! Your order has been placed.", "success");
+        navigate("/thank-you");
+      }
+    } catch (error) {
+      console.error("Order error:", error);
+      setError(error.message || "Something went wrong with the payment");
+      addToast(error.message || "Payment failed or was cancelled", "error");
+      setLoading(false);
+    }
+  };
 
   if (placedOrder) {
-    return null;
+    return (
+      <div className="pt-28 pb-20 text-center min-h-[60vh] flex flex-col items-center justify-center">
+        <h2 className="text-2xl font-bold mb-4">Order Placed Successfully!</h2>
+        <p className="mb-6">
+          Thank you for your purchase.
+          <br />
+          <strong>Your Order ID is {placedOrder}.</strong>
+          <br />
+          <span>
+            Use this Order ID to&nbsp;
+            <a
+              className="text-amber-700 underline hover:text-amber-800 transition-colors"
+              href="/transorder"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate("/track-order");
+              }}
+            >
+              track your order
+            </a>
+            .
+          </span>
+        </p>
+        <button className="btn-primary" onClick={() => navigate("/shop")}>
+          Continue Shopping
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -161,7 +261,11 @@ const Checkout = () => {
           <h1 className="text-2xl font-serif font-bold mb-4">
             Shipping Details
           </h1>
-
+          {(error || contextError) && (
+            <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+              {error || contextError}
+            </div>
+          )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
             <div>
               <label className="font-medium">Name*</label>
@@ -169,8 +273,9 @@ const Checkout = () => {
                 name="name"
                 value={form.name}
                 onChange={handleInput}
-                className="w-full border px-3 py-2 rounded mt-1"
+                className="w-full border px-3 py-2 rounded mt-1 focus:outline-none focus:ring-2 focus:ring-amber-500"
                 required
+                disabled={loading}
               />
               {errors.name && (
                 <div className="text-red-500 text-xs mt-1">{errors.name}</div>
@@ -179,29 +284,27 @@ const Checkout = () => {
             <div>
               <label className="font-medium">Email*</label>
               <input
-                type="email"
                 name="email"
+                type="email"
                 value={form.email}
                 onChange={handleInput}
-                className="w-full border px-3 py-2 rounded mt-1"
+                className="w-full border px-3 py-2 rounded mt-1 focus:outline-none focus:ring-2 focus:ring-amber-500"
                 required
+                disabled={loading}
               />
               {errors.email && (
                 <div className="text-red-500 text-xs mt-1">{errors.email}</div>
               )}
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
             <div>
               <label className="font-medium">Phone*</label>
               <input
-                type="tel"
                 name="phone"
                 value={form.phone}
                 onChange={handleInput}
-                className="w-full border px-3 py-2 rounded mt-1"
+                className="w-full border px-3 py-2 rounded mt-1 focus:outline-none focus:ring-2 focus:ring-amber-500"
                 required
+                disabled={loading}
               />
               {errors.phone && (
                 <div className="text-red-500 text-xs mt-1">{errors.phone}</div>
@@ -213,10 +316,9 @@ const Checkout = () => {
                 name="pincode"
                 value={form.pincode}
                 onChange={handleInput}
-                className="w-full border px-3 py-2 rounded mt-1"
+                className="w-full border px-3 py-2 rounded mt-1 focus:outline-none focus:ring-2 focus:ring-amber-500"
                 required
-                maxLength={6}
-                minLength={6}
+                disabled={loading}
               />
               {errors.pincode && (
                 <div className="text-red-500 text-xs mt-1">
@@ -224,31 +326,31 @@ const Checkout = () => {
                 </div>
               )}
             </div>
-          </div>
-
-          <div className="mb-4">
-            <label className="font-medium">Address*</label>
-            <textarea
-              name="address"
-              value={form.address}
-              onChange={handleInput}
-              className="w-full border px-3 py-2 rounded mt-1"
-              required
-            />
-            {errors.address && (
-              <div className="text-red-500 text-xs mt-1">{errors.address}</div>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-4">
+            <div className="md:col-span-2">
+              <label className="font-medium">Address*</label>
+              <textarea
+                name="address"
+                value={form.address}
+                onChange={handleInput}
+                className="w-full border px-3 py-2 rounded mt-1 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                required
+                disabled={loading}
+              />
+              {errors.address && (
+                <div className="text-red-500 text-xs mt-1">
+                  {errors.address}
+                </div>
+              )}
+            </div>
             <div>
               <label className="font-medium">City*</label>
               <input
                 name="city"
                 value={form.city}
                 onChange={handleInput}
-                className="w-full border px-3 py-2 rounded mt-1"
+                className="w-full border px-3 py-2 rounded mt-1 focus:outline-none focus:ring-2 focus:ring-amber-500"
                 required
+                disabled={loading}
               />
               {errors.city && (
                 <div className="text-red-500 text-xs mt-1">{errors.city}</div>
@@ -260,8 +362,9 @@ const Checkout = () => {
                 name="state"
                 value={form.state}
                 onChange={handleInput}
-                className="w-full border px-3 py-2 rounded mt-1"
+                className="w-full border px-3 py-2 rounded mt-1 focus:outline-none focus:ring-2 focus:ring-amber-500"
                 required
+                disabled={loading}
               >
                 <option value="">Select State</option>
                 {statesIndia.map((state) => (
@@ -274,51 +377,49 @@ const Checkout = () => {
                 <div className="text-red-500 text-xs mt-1">{errors.state}</div>
               )}
             </div>
+            <div className="md:col-span-2">
+              <label className="font-medium">Notes (Optional)</label>
+              <textarea
+                name="notes"
+                value={form.notes}
+                onChange={handleInput}
+                className="w-full border px-3 py-2 rounded mt-1 focus:outline-none focus:ring-2 focus:ring-amber-500"
+                disabled={loading}
+              />
+            </div>
           </div>
-
-          <div className="mb-10">
-            <label className="font-medium">Order Notes</label>
-            <textarea
-              name="notes"
-              value={form.notes}
-              onChange={handleInput}
-              className="w-full border px-3 py-2 rounded mt-1"
-              placeholder="Anything extra for your order? (optional)"
-            />
-          </div>
-
-          <button type="submit" className="btn-primary w-full">
-            Pay and Place Order
+          <button
+            type="submit"
+            className="btn-primary w-full mt-4"
+            disabled={loading}
+          >
+            {loading ? (
+              <div className="flex items-center justify-center">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                Processing...
+              </div>
+            ) : (
+              "Place Order"
+            )}
           </button>
         </form>
-
-        <div className="bg-white border rounded-lg shadow p-8">
-          <h2 className="text-lg font-serif font-semibold mb-5">Your Order</h2>
-
-          <div className="space-y-3 mb-4">
-            {cartItems.map((item, index) => (
-              <div key={item.id || index} className="flex items-center gap-3">
-                <img
-                  src={item.image}
-                  alt={item.name}
-                  className="w-14 h-16 object-cover rounded border"
-                />
-                <div className="flex-1">
-                  <div className="font-medium">{item.name}</div>
-                  <div className="text-xs text-neutral-400">
-                    x{item.quantity} &times; ₹{item.price}
-                  </div>
-                </div>
-                <div className="font-medium">
-                  ₹{(item.price * item.quantity).toFixed(2)}
-                </div>
+        <div className="bg-white border rounded-lg shadow p-8 h-fit">
+          <h2 className="text-xl font-serif font-bold mb-4">Order Summary</h2>
+          <div className="space-y-4">
+            {cartItems.map((item) => (
+              <div key={item._id} className="flex justify-between">
+                <span>
+                  {item.name} x {item.quantity}
+                </span>
+                <span>₹{item.price * item.quantity}</span>
               </div>
             ))}
-          </div>
-
-          <div className="flex justify-between font-semibold border-t pt-4 mt-6 mb-2">
-            <span>Total</span>
-            <span>₹{cartSubtotal.toFixed(2)}</span>
+            <div className="border-t pt-4">
+              <div className="flex justify-between font-bold">
+                <span>Total</span>
+                <span>₹{cartSubtotal}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>

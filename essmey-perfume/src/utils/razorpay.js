@@ -1,44 +1,56 @@
-// src/utils/razorpay.js
+// Simple utility function for Razorpay payment
+export const openRazorpay = (options) => {
+  return new Promise((resolve, reject) => {
+    // Check if Razorpay script is already loaded
+    if (window.Razorpay) {
+      initializeRazorpay(options, resolve, reject);
+    } else {
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onerror = () => {
+        reject(new Error("Failed to load Razorpay script"));
+      };
+      script.onload = () => {
+        initializeRazorpay(options, resolve, reject);
+      };
+      document.body.appendChild(script);
+    }
+  });
+};
 
-export const openRazorpay = (orderDetails) => {
-  if (process.env.NODE_ENV === "development") {
-    // Mock behavior in development environment
-    console.log("Mock Razorpay payment:", orderDetails);
-    setTimeout(() => {
-      alert("Mock payment successful. Order placed.");
-      window.location.href = "/thank-you"; // Redirect to thank you page
-    }, 1000);
-    return;
-  }
-
-  if (window.Razorpay) {
-    const options = {
-      key: process.env.VITE_RAZORPAY_KEY, // Razorpay key
-      amount: orderDetails.amount * 100, // amount in paise (multiply by 100)
-      currency: "INR",
-      name: "Essmey Perfumes",
-      description: "Perfume Purchase",
-      image: "/logo-dark.png",
+const initializeRazorpay = (options, resolve, reject) => {
+  try {
+    const rzp = new window.Razorpay({
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+      amount: options.amount,
+      currency: options.currency || "INR",
+      name: options.name || "Essmey Perfume",
+      description: options.description || "Payment for your order",
+      order_id: options.orderId,
       handler: function (response) {
-        console.log("Payment successful:", response);
-        window.location.href = "/thank-you"; // Redirect to thank you page
+        resolve(response);
       },
       prefill: {
-        name: orderDetails.customerName,
-        email: orderDetails.customerEmail,
-        contact: orderDetails.customerPhone,
-      },
-      notes: {
-        address: orderDetails.customerAddress,
+        name: options.prefill?.name || "",
+        email: options.prefill?.email || "",
+        contact: options.prefill?.contact || "",
       },
       theme: {
-        color: "#F37254",
+        color: "#000000",
       },
-    };
+      modal: {
+        ondismiss: function() {
+          reject(new Error("Payment cancelled by user"));
+        }
+      }
+    });
 
-    const razorpay = new window.Razorpay(options);
-    razorpay.open();
-  } else {
-    console.error("Razorpay SDK not loaded");
+    rzp.on("payment.failed", function (response) {
+      reject(new Error(response.error.description || "Payment failed"));
+    });
+
+    rzp.open();
+  } catch (error) {
+    reject(error);
   }
 };

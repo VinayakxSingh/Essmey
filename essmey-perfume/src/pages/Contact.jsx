@@ -5,16 +5,19 @@ import {
   ClockIcon,
 } from "@heroicons/react/24/outline";
 import { useState } from "react";
-import { client } from "../sanity/sanityClient";
+import { client } from "../utils/sanity";
+// import { useToast } from "../utils/ToastContext";
+
 const Contact = () => {
+  const { addToast } = useToast();
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     subject: "",
     message: "",
   });
-  const [formStatus, setFormStatus] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -22,41 +25,36 @@ const Contact = () => {
       [name]: value,
     }));
   };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     // Form validation
     if (!formData.name || !formData.email || !formData.message) {
-      setFormStatus({
-        type: "error",
-        message: "Please fill out all required fields.",
-      });
+      addToast("Please fill out all required fields.", "error");
       return;
     }
     // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      setFormStatus({
-        type: "error",
-        message: "Please enter a valid email address.",
-      });
+      addToast("Please enter a valid email address.", "error");
       return;
     }
     setIsSubmitting(true);
 
     try {
       await client.create({
-        _type: "contact", // Match your Sanity schema name
+        _type: "contact",
         name: formData.name,
         email: formData.email,
-        subject: formData.subject || "No Subject", // Provide default if empty
+        subject: formData.subject || "No Subject",
         message: formData.message,
         createdAt: new Date().toISOString(),
       });
 
-      setFormStatus({
-        type: "success",
-        message: "Thank you for your message! We will get back to you soon.",
-      });
+      addToast(
+        "Thank you for your message! We will get back to you soon.",
+        "success"
+      );
 
       // Reset form
       setFormData({
@@ -67,14 +65,12 @@ const Contact = () => {
       });
     } catch (err) {
       console.error("Error submitting form:", err);
-      setFormStatus({
-        type: "error",
-        message: "Something went wrong. Please try again later.",
-      });
+      addToast("Something went wrong. Please try again later.", "error");
     } finally {
       setIsSubmitting(false);
     }
   };
+
   return (
     <div className="pt-24 pb-16">
       {/* Hero Section */}
@@ -212,17 +208,6 @@ const Contact = () => {
               Send Us a Message
             </h2>
             <div className="w-16 h-1 bg-amber mb-6"></div>
-            {formStatus && (
-              <div
-                className={`mb-6 p-4 rounded-md ${
-                  formStatus.type === "success"
-                    ? "bg-green-100 text-green-700 border border-green-300"
-                    : "bg-red-100 text-red-700 border border-red-300"
-                }`}
-              >
-                {formStatus.message}
-              </div>
-            )}
             <form
               onSubmit={handleSubmit}
               className="bg-white p-6 rounded-md shadow-sm"
@@ -314,4 +299,5 @@ const Contact = () => {
     </div>
   );
 };
+
 export default Contact;

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import ProductCard from "../components/ProductCard";
-import { sanityClient } from "../utils/sanity";
+import { client } from "../utils/sanity";
 import { StarIcon } from "@heroicons/react/24/solid";
 
 const Home = () => {
@@ -12,50 +12,124 @@ const Home = () => {
   const [activeTestimonial, setActiveTestimonial] = useState(0);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [loadingTestimonials, setLoadingTestimonials] = useState(true);
+  const [error, setError] = useState(null);
 
   // Fetch all products from Sanity just once on mount
   useEffect(() => {
-    setLoadingProducts(true);
-    sanityClient
-      .fetch(
-        `*[_type == "product"]{
-        _id,
-        name,
-        category,
-        price,
-        stock,
-        featured,
-        bestSeller,
-        new,
-        description,
-        notes,
-        "images": images[].asset->url
-      }`
-      )
-      .then((products) => {
-        setFeaturedProducts(products.filter((p) => p.featured).slice(0, 4));
-        setBestSellers(products.filter((p) => p.bestSeller).slice(0, 4));
+    const fetchProducts = async () => {
+      try {
+        setLoadingProducts(true);
+        setError(null);
+
+        const products = await client.fetch(
+          `*[_type == "product"]{
+            _id,
+            name,
+            category,
+            price,
+            stock,
+            featured,
+            bestSeller,
+            new,
+            description,
+            notes,
+            "images": images[].asset->url
+          }`
+        );
+
+        if (!products || !Array.isArray(products)) {
+          throw new Error("Invalid products data received");
+        }
+
+        // Filter and set featured products
+        const featured = products.filter((p) => p.featured).slice(0, 4);
+        setFeaturedProducts(featured);
+
+        // Filter and set best sellers
+        const bestSelling = products.filter((p) => p.bestSeller).slice(0, 4);
+        setBestSellers(bestSelling);
+
+        // If no products are found, use sample data
+        if (products.length === 0) {
+          const { products: sampleProducts } = await import(
+            "../utils/sampleData"
+          );
+          setFeaturedProducts(
+            sampleProducts.filter((p) => p.featured).slice(0, 4)
+          );
+          setBestSellers(
+            sampleProducts.filter((p) => p.bestSeller).slice(0, 4)
+          );
+          console.log("Using sample data for demonstration");
+        }
+      } catch (error) {
+        console.error("Error fetching products:", error);
+        setError("Failed to load products");
+
+        // Fallback to sample data
+        const { products: sampleProducts } = await import(
+          "../utils/sampleData"
+        );
+        setFeaturedProducts(
+          sampleProducts.filter((p) => p.featured).slice(0, 4)
+        );
+        setBestSellers(sampleProducts.filter((p) => p.bestSeller).slice(0, 4));
+        console.log("Using sample data for demonstration");
+      } finally {
         setLoadingProducts(false);
-      });
+      }
+    };
+
+    fetchProducts();
   }, []);
 
   // Fetch testimonials
   useEffect(() => {
-    setLoadingTestimonials(true);
-    sanityClient
-      .fetch(
-        `*[_type == "testimonial"] | order(_createdAt desc)[0...6] {
-        _id,
-        name,
-        location,
-        rating,
-        text
-      }`
-      )
-      .then((data) => {
+    const fetchTestimonials = async () => {
+      try {
+        setLoadingTestimonials(true);
+        setError(null);
+
+        const data = await client.fetch(
+          `*[_type == "testimonial"] | order(_createdAt desc)[0...6] {
+            _id,
+            name,
+            location,
+            rating,
+            text
+          }`
+        );
+
+        if (!data || !Array.isArray(data)) {
+          throw new Error("Invalid testimonials data received");
+        }
+
         setTestimonials(data);
+
+        // If no testimonials are found, use sample data
+        if (data.length === 0) {
+          const { testimonials: sampleTestimonials } = await import(
+            "../utils/sampleData"
+          );
+          setTestimonials(sampleTestimonials);
+          console.log("Using sample testimonials for demonstration");
+        }
+      } catch (error) {
+        console.error("Error fetching testimonials:", error);
+        setError("Failed to load testimonials");
+
+        // Fallback to sample data
+        const { testimonials: sampleTestimonials } = await import(
+          "../utils/sampleData"
+        );
+        setTestimonials(sampleTestimonials);
+        console.log("Using sample testimonials for demonstration");
+      } finally {
         setLoadingTestimonials(false);
-      });
+      }
+    };
+
+    fetchTestimonials();
   }, []);
 
   // Rotating testimonials if there are at least 2
@@ -67,6 +141,11 @@ const Home = () => {
       return () => clearInterval(intervalId);
     }
   }, [testimonials]);
+
+  const handleImageError = (e) => {
+    console.error("Error loading image:", e);
+    e.target.src = "/images/placeholder.jpg";
+  };
 
   return (
     <div className="pt-16">
@@ -126,6 +205,8 @@ const Home = () => {
                   src="/images/forher.png"
                   alt="Women's Perfumes"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  onError={handleImageError}
+                  loading="lazy"
                 />
               </div>
               <div className="absolute inset-0 bg-black bg-opacity-20 transition-opacity duration-300 group-hover:bg-opacity-30 flex items-center justify-center">
@@ -144,6 +225,8 @@ const Home = () => {
                   src="/images/forhim.png"
                   alt="Men's Perfumes"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  onError={handleImageError}
+                  loading="lazy"
                 />
               </div>
               <div className="absolute inset-0 bg-black bg-opacity-20 transition-opacity duration-300 group-hover:bg-opacity-30 flex items-center justify-center">
@@ -159,9 +242,11 @@ const Home = () => {
             >
               <div className="h-[340px] md:h-[370px] overflow-hidden bg-neutral-100 flex items-center justify-center">
                 <img
-                  src="https://images.unsplash.com/photo-1594035910387-fea47794261f?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxzZWFyY2h8MzR8fHBlcmZ1bWV8ZW58MHx8MHx8&auto=format&fit=crop&w=500&q=60"
+                  src="/images/unisex.png"
                   alt="Unisex Perfumes"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                  onError={handleImageError}
+                  loading="lazy"
                 />
               </div>
               <div className="absolute inset-0 bg-black bg-opacity-20 transition-opacity duration-300 group-hover:bg-opacity-30 flex items-center justify-center">
@@ -184,9 +269,19 @@ const Home = () => {
             Discover our most coveted scents, handcrafted with passion
           </p>
 
-          {loadingProducts ? (
-            <div className="text-center text-neutral-500 py-8">
-              Loading products…
+          {error ? (
+            <div className="text-center text-red-500 py-8">{error}</div>
+          ) : loadingProducts ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, index) => (
+                <div key={index} className="animate-pulse">
+                  <div className="aspect-[3/4] bg-neutral-100 rounded"></div>
+                  <div className="mt-4">
+                    <div className="h-4 bg-neutral-100 rounded w-3/4"></div>
+                    <div className="h-4 bg-neutral-100 rounded w-1/2 mt-2"></div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -226,7 +321,7 @@ const Home = () => {
               </p>
               <Link
                 to="/about"
-                className="btn-secondary border-white text-white hover:bg-white hover:text-black"
+                className="inline-block border border-white text-white px-6 py-2 rounded transition duration-300 ease-in-out hover:bg-white hover:text-black"
               >
                 Learn More
               </Link>
@@ -236,6 +331,8 @@ const Home = () => {
                 src="/images/essmeybg.jpg"
                 alt="Perfume Making"
                 className="w-full h-full object-cover"
+                onError={handleImageError}
+                loading="lazy"
               />
             </div>
           </div>
@@ -249,11 +346,22 @@ const Home = () => {
             BEST SELLERS
           </h2>
           <p className="text-center text-neutral-600 mb-12">
-            Our most loved fragrances that keep our customers coming back
+            Our most popular fragrances, loved by customers worldwide
           </p>
-          {loadingProducts ? (
-            <div className="text-center text-neutral-500 py-8">
-              Loading products…
+
+          {error ? (
+            <div className="text-center text-red-500 py-8">{error}</div>
+          ) : loadingProducts ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {[...Array(4)].map((_, index) => (
+                <div key={index} className="animate-pulse">
+                  <div className="aspect-[3/4] bg-neutral-100 rounded"></div>
+                  <div className="mt-4">
+                    <div className="h-4 bg-neutral-100 rounded w-3/4"></div>
+                    <div className="h-4 bg-neutral-100 rounded w-1/2 mt-2"></div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -266,64 +374,78 @@ const Home = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="py-16 bg-white">
+      <section className="py-16">
         <div className="container-custom">
           <h2 className="text-3xl font-serif font-medium mb-2 text-center">
             WHAT OUR CUSTOMERS SAY
           </h2>
           <p className="text-center text-neutral-600 mb-12">
-            Discover why our customers love Essmey fragrances
+            Discover why our customers love Essmey
           </p>
 
-          <div className="relative max-w-3xl mx-auto">
-            {loadingTestimonials ? (
-              <div className="text-center text-neutral-500 py-12">
-                Loading testimonials…
+          {error ? (
+            <div className="text-center text-red-500 py-8">{error}</div>
+          ) : loadingTestimonials ? (
+            <div className="max-w-3xl mx-auto text-center">
+              <div className="animate-pulse">
+                <div className="h-4 bg-neutral-100 rounded w-3/4 mx-auto"></div>
+                <div className="h-4 bg-neutral-100 rounded w-1/2 mx-auto mt-4"></div>
+                <div className="h-4 bg-neutral-100 rounded w-1/4 mx-auto mt-4"></div>
               </div>
-            ) : testimonials.length > 0 ? (
-              testimonials.map((testimonial, index) => (
-                <div
-                  key={testimonial._id}
-                  className={`transition-opacity duration-500 text-center ${index === activeTestimonial ? "opacity-100" : "opacity-0 absolute inset-0 pointer-events-none"}`}
-                  style={{ minHeight: 150 }}
-                >
-                  <div className="flex justify-center mb-4">
-                    {[...Array(5)].map((_, i) => (
-                      <StarIcon
-                        key={i}
-                        className={`h-5 w-5 ${i < (testimonial.rating || 0) ? "text-yellow-400" : "text-gray-300"}`}
-                      />
-                    ))}
-                  </div>
-                  <blockquote className="text-xl italic mb-6">
-                    {testimonial.text}
-                  </blockquote>
-                  <p className="font-medium">
-                    {testimonial.name}
-                    {testimonial.location ? `, ${testimonial.location}` : ""}
-                  </p>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-12 text-neutral-500">
-                No testimonials yet!
+            </div>
+          ) : testimonials.length > 0 ? (
+            <div className="max-w-3xl mx-auto">
+              <div className="relative">
+                {testimonials.map((testimonial, index) => (
+                  <motion.div
+                    key={testimonial._id}
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: index === activeTestimonial ? 1 : 0 }}
+                    transition={{ duration: 0.5 }}
+                    className={`absolute inset-0 ${
+                      index === activeTestimonial ? "block" : "hidden"
+                    }`}
+                  >
+                    <div className="text-center">
+                      <div className="flex justify-center mb-4">
+                        {[...Array(5)].map((_, i) => (
+                          <StarIcon
+                            key={i}
+                            className={`h-5 w-5 ${
+                              i < testimonial.rating
+                                ? "text-yellow-400"
+                                : "text-neutral-300"
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <p className="text-lg italic mb-6">{testimonial.text}</p>
+                      <p className="font-medium">{testimonial.name}</p>
+                      <p className="text-neutral-600">{testimonial.location}</p>
+                    </div>
+                  </motion.div>
+                ))}
               </div>
-            )}
-
-            {/* Dots */}
-            {testimonials.length > 1 && (
               <div className="flex justify-center mt-8 space-x-2">
                 {testimonials.map((_, index) => (
                   <button
                     key={index}
                     onClick={() => setActiveTestimonial(index)}
-                    className={`h-2 w-2 rounded-full ${index === activeTestimonial ? "bg-black" : "bg-gray-300"}`}
+                    className={`w-2 h-2 rounded-full transition-colors ${
+                      index === activeTestimonial
+                        ? "bg-black"
+                        : "bg-neutral-300"
+                    }`}
                     aria-label={`View testimonial ${index + 1}`}
                   />
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <div className="text-center text-neutral-500 py-8">
+              No testimonials available
+            </div>
+          )}
         </div>
       </section>
     </div>

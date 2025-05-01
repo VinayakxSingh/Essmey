@@ -1,6 +1,6 @@
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { useAppContext } from "../utils/context";
-import { sanityClient } from "../utils/sanity";
+import { client } from "../utils/sanity";
 import { useState, useEffect } from "react";
 import { ShoppingBagIcon, HeartIcon } from "@heroicons/react/24/outline";
 import { HeartIcon as HeartSolidIcon } from "@heroicons/react/24/solid";
@@ -9,67 +9,107 @@ const FALLBACK_IMAGE = "/images/product-1.jpg";
 
 const ProductDetails = () => {
   const { id } = useParams();
-  const { addToCart, addToWishlist, removeFromWishlist, isInWishlist } =
-    useAppContext();
+  const {
+    addToCart,
+    addToWishlist,
+    removeFromWishlist,
+    isInWishlist,
+    error: contextError,
+    wishlist,
+  } = useAppContext();
+  const navigate = useNavigate();
   const [product, setProduct] = useState(null);
   const [quantity, setQuantity] = useState(1);
-  const [selectedImg, setSelectedImg] = useState();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
+    const fetchProduct = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-    sanityClient
-      .fetch(
-        `*[_type == "product" && _id == $id][0]{
-        _id,
-        name,
-        category,
-        price,
-        stock,
-        featured,
-        bestSeller,
-        new,
-        description,
-        notes,
-        "images": images[].asset->url
-      }`,
-        { id }
-      )
-      .then((productResult) => {
+        const productResult = await client.fetch(
+          `*[_type == "product" && _id == $id][0]{
+            _id,
+            name,
+            price,
+            stock,
+            description,
+            "image": images[0].asset->url
+          }`,
+          { id }
+        );
+
         if (!productResult) {
-          setError("Product not found");
-          setLoading(false);
-          return;
+          throw new Error("Product not found");
         }
 
         setProduct(productResult);
-        setSelectedImg(
-          productResult &&
-            productResult.images &&
-            productResult.images.length > 0
-            ? productResult.images[0]
-            : FALLBACK_IMAGE
-        );
-        setLoading(false);
-      })
-      .catch((err) => {
+      } catch (err) {
         console.error("Error fetching product:", err);
-        setError("Failed to load product data. Please try again later.");
+        setError(
+          err.message || "Failed to load product data. Please try again later."
+        );
+      } finally {
         setLoading(false);
-      });
+      }
+    };
+
+    fetchProduct();
   }, [id]);
 
+  const handleWishlistClick = (e) => {
+    try {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (isInWishlist(product._id)) {
+        removeFromWishlist(product._id);
+        console.log("Removed from wishlist");
+      } else {
+        addToWishlist(product);
+        console.log("Added to wishlist");
+      }
+    } catch (err) {
+      console.error("Error handling wishlist:", err);
+    }
+  };
+
+  const handleAddToCart = () => {
+    if (product.stock === 0) {
+      console.error("Product is out of stock");
+      return;
+    }
+    if (quantity > product.stock) {
+      console.error(`Only ${product.stock} items available`);
+      return;
+    }
+    try {
+      addToCart(product, quantity);
+      console.log(`${product.name} added to cart!`);
+    } catch (error) {
+      console.error("Failed to add to cart", error);
+    }
+  };
+
   if (loading) {
-    return <div className="pt-24 pb-16 text-center">Loading...</div>;
+    return (
+      <div className="pt-24 pb-16 min-h-[60vh] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto"></div>
+          <p className="mt-4 text-lg">Loading product details...</p>
+        </div>
+      </div>
+    );
   }
 
   if (error || !product) {
     return (
       <div className="pt-24 pb-16 min-h-[60vh] flex flex-col items-center justify-center">
-        <h1 className="text-3xl font-bold">{error || "Product Not Found"}</h1>
+        <h1 className="text-3xl font-bold text-red-600 mb-4">
+          {error || "Product Not Found"}
+        </h1>
         <Link to="/shop" className="btn-primary mt-4">
           Back to Shop
         </Link>
@@ -77,38 +117,33 @@ const ProductDetails = () => {
     );
   }
 
-  const handleWishlistClick = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (isInWishlist(product._id)) {
-      removeFromWishlist(product._id);
-    } else {
-      addToWishlist(product);
-    }
-  };
-
-  const handleAddToCart = () => {
-    addToCart(product, quantity);
-    // Optional: show a success message or notification
-  };
-
   return (
     <div className="pt-24 pb-16">
       <div className="container-custom">
+        {contextError && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+            {contextError}
+          </div>
+        )}
         <div className="grid gap-10 md:grid-cols-2">
           <div>
             <div className="aspect-[3/4] bg-neutral-100 relative rounded overflow-hidden mb-4">
               <img
-                src={selectedImg || FALLBACK_IMAGE}
+                src={product.image || FALLBACK_IMAGE}
                 alt={product.name}
-                className="w-full h-full object-cover transition-transform duration-500"
+                className="w-full h-full object-cover"
                 onError={(e) => {
                   e.target.src = FALLBACK_IMAGE;
                 }}
               />
               <button
                 onClick={handleWishlistClick}
-                className="absolute top-3 right-3 p-2 rounded-full bg-white bg-opacity-80 hover:bg-opacity-100 shadow"
+                className="absolute top-3 right-3 p-2 rounded-full bg-white bg-opacity-80 hover:bg-opacity-100 shadow transition-all duration-200"
+                aria-label={
+                  isInWishlist(product._id)
+                    ? "Remove from wishlist"
+                    : "Add to wishlist"
+                }
               >
                 {isInWishlist(product._id) ? (
                   <HeartSolidIcon className="h-7 w-7 text-red-500" />
@@ -116,27 +151,6 @@ const ProductDetails = () => {
                   <HeartIcon className="h-7 w-7 text-black" />
                 )}
               </button>
-            </div>
-            <div className="flex gap-2">
-              {(product.images && product.images.length
-                ? product.images
-                : [FALLBACK_IMAGE]
-              ).map((img, idx) => (
-                <button
-                  key={idx}
-                  onClick={() => setSelectedImg(img)}
-                  aria-label="Select product image"
-                >
-                  <img
-                    src={img}
-                    alt={product.name}
-                    className={`w-16 h-16 object-cover rounded border ${selectedImg === img ? "border-black opacity-100" : "border-transparent opacity-60"} transition-all`}
-                    onError={(e) => {
-                      e.target.src = FALLBACK_IMAGE;
-                    }}
-                  />
-                </button>
-              ))}
             </div>
           </div>
           <div>
@@ -146,49 +160,13 @@ const ProductDetails = () => {
             <p className="text-xl font-medium text-black mb-2">
               ₹{product.price?.toFixed(2)}
             </p>
-            <div className="mb-2">
-              {product.category && (
-                <span className="text-xs text-neutral-500 uppercase px-2 py-1 border border-neutral-300 rounded mr-2">
-                  {product.category}
-                </span>
-              )}
-              {product.new && (
-                <span className="text-xs px-2 py-1 bg-yellow-100 rounded mr-2">
-                  New
-                </span>
-              )}
-              {product.bestSeller && (
-                <span className="text-xs px-2 py-1 bg-blue-100 rounded">
-                  Best Seller
-                </span>
-              )}
-            </div>
             <div className="mb-4 text-neutral-700">{product.description}</div>
-            {/* Notes */}
-            {product.notes && (
-              <div className="mb-6">
-                <h3 className="font-medium mb-1">Notes</h3>
-                <div className="flex gap-4 text-sm">
-                  <span>
-                    <strong>Top:</strong> {(product.notes.top || []).join(", ")}
-                  </span>
-                  <span>
-                    <strong>Middle:</strong>{" "}
-                    {(product.notes.middle || []).join(", ")}
-                  </span>
-                  <span>
-                    <strong>Base:</strong>{" "}
-                    {(product.notes.base || []).join(", ")}
-                  </span>
-                </div>
-              </div>
-            )}
             <div className="mb-4">
               <span
                 className={`text-sm ${product.stock > 0 ? "text-green-600" : "text-red-600"}`}
               >
                 {product.stock > 0
-                  ? `   ${product.stock} left in stock`
+                  ? `${product.stock} left in stock`
                   : "Out of stock"}
               </span>
             </div>
@@ -208,16 +186,15 @@ const ProductDetails = () => {
                   )
                 }
                 className="w-16 border border-neutral-300 rounded px-2 py-1"
+                disabled={product.stock <= 0}
               />
               <button
-                className="btn-primary flex items-center gap-2"
                 onClick={handleAddToCart}
-                disabled={!product.stock || product.stock < 1}
+                disabled={product.stock <= 0}
+                className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <ShoppingBagIcon className="h-5 w-5" />
-                {!product.stock || product.stock < 1
-                  ? "Out of Stock"
-                  : "Add to Cart"}
+                Add to Cart
               </button>
             </div>
           </div>

@@ -1,6 +1,14 @@
-import { useState, useEffect } from 'react'
-import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom'
-import { products } from '../utils/sampleData'
+import { useState, useEffect } from "react";
+import {
+  Routes,
+  Route,
+  Link,
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
+import { products } from "../utils/sampleData";
+import { useAuth } from "../utils/AuthContext";
+import { client } from "../utils/sanity";
 
 // Dashboard Component
 const Dashboard = () => {
@@ -13,7 +21,10 @@ const Dashboard = () => {
           <div className="text-neutral-500 mb-2">Total Products</div>
           <div className="text-3xl font-medium">{products.length}</div>
           <div className="mt-4 text-sm">
-            <Link to="/admin/products" className="text-blue-600 hover:underline">
+            <Link
+              to="/admin/products"
+              className="text-blue-600 hover:underline"
+            >
               View all products →
             </Link>
           </div>
@@ -52,26 +63,27 @@ const Dashboard = () => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
 // Products List Component
 const ProductsList = () => {
-  const [searchTerm, setSearchTerm] = useState('')
-  const [filteredProducts, setFilteredProducts] = useState(products)
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filteredProducts, setFilteredProducts] = useState(products);
 
   useEffect(() => {
     if (!searchTerm.trim()) {
-      setFilteredProducts(products)
-      return
+      setFilteredProducts(products);
+      return;
     }
 
-    const filtered = products.filter(product =>
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      product.category.toLowerCase().includes(searchTerm.toLowerCase())
-    )
-    setFilteredProducts(filtered)
-  }, [searchTerm])
+    const filtered = products.filter(
+      (product) =>
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        product.category.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    setFilteredProducts(filtered);
+  }, [searchTerm]);
 
   return (
     <div className="p-6">
@@ -99,14 +111,18 @@ const ProductsList = () => {
               <th className="border border-neutral-200 p-3 text-left">ID</th>
               <th className="border border-neutral-200 p-3 text-left">Image</th>
               <th className="border border-neutral-200 p-3 text-left">Name</th>
-              <th className="border border-neutral-200 p-3 text-left">Category</th>
+              <th className="border border-neutral-200 p-3 text-left">
+                Category
+              </th>
               <th className="border border-neutral-200 p-3 text-left">Price</th>
               <th className="border border-neutral-200 p-3 text-left">Stock</th>
-              <th className="border border-neutral-200 p-3 text-left">Actions</th>
+              <th className="border border-neutral-200 p-3 text-left">
+                Actions
+              </th>
             </tr>
           </thead>
           <tbody>
-            {filteredProducts.map(product => (
+            {filteredProducts.map((product) => (
               <tr key={product.id} className="hover:bg-neutral-50">
                 <td className="border border-neutral-200 p-3">{product.id}</td>
                 <td className="border border-neutral-200 p-3">
@@ -118,14 +134,26 @@ const ProductsList = () => {
                     />
                   </div>
                 </td>
-                <td className="border border-neutral-200 p-3">{product.name}</td>
-                <td className="border border-neutral-200 p-3 capitalize">{product.category}</td>
-                <td className="border border-neutral-200 p-3">${product.price.toFixed(2)}</td>
-                <td className="border border-neutral-200 p-3">{product.stock}</td>
+                <td className="border border-neutral-200 p-3">
+                  {product.name}
+                </td>
+                <td className="border border-neutral-200 p-3 capitalize">
+                  {product.category}
+                </td>
+                <td className="border border-neutral-200 p-3">
+                  ${product.price.toFixed(2)}
+                </td>
+                <td className="border border-neutral-200 p-3">
+                  {product.stock}
+                </td>
                 <td className="border border-neutral-200 p-3">
                   <div className="flex space-x-2">
-                    <button className="text-blue-600 hover:underline">Edit</button>
-                    <button className="text-red-600 hover:underline">Delete</button>
+                    <button className="text-blue-600 hover:underline">
+                      Edit
+                    </button>
+                    <button className="text-red-600 hover:underline">
+                      Delete
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -140,8 +168,8 @@ const ProductsList = () => {
         </div>
       )}
     </div>
-  )
-}
+  );
+};
 
 // Orders List Component
 const OrdersList = () => {
@@ -151,56 +179,87 @@ const OrdersList = () => {
 
       <div className="text-center py-12 border border-dashed border-neutral-300 rounded">
         <p className="text-lg text-neutral-500 mb-4">No orders yet.</p>
-        <p className="text-neutral-500">Orders will appear here when customers make purchases.</p>
+        <p className="text-neutral-500">
+          Orders will appear here when customers make purchases.
+        </p>
       </div>
     </div>
-  )
-}
+  );
+};
 
 // New Product Form Component
 const NewProduct = () => {
-  const navigate = useNavigate()
+  const { user, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
   const [formData, setFormData] = useState({
-    name: '',
-    category: 'women',
-    price: '',
-    description: '',
-    stock: '',
+    name: "",
+    category: "women",
+    price: "",
+    description: "",
+    stock: "",
     featured: false,
     bestSeller: false,
-    new: true
-  })
+    new: true,
+  });
+  const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
-    const { name, value, type, checked } = e.target
-    setFormData(prev => ({
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
       ...prev,
-      [name]: type === 'checkbox' ? checked : value
-    }))
-  }
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
 
-  const handleSubmit = (e) => {
-    e.preventDefault()
-
-    // In a real app, you would send this data to a server
-    // For this demo, we'll just show an alert and navigate back
-    alert('Product created successfully!')
-    navigate('/admin/products')
-  }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await client.create({
+        _type: "product",
+        name: formData.name,
+        price: Number(formData.price),
+        description: formData.description,
+        category: formData.category,
+        stock: Number(formData.stock),
+        featured: formData.featured,
+        bestSeller: formData.bestSeller,
+        new: formData.new,
+      });
+      console.log("Product created successfully!");
+      setFormData({
+        name: "",
+        category: "women",
+        price: "",
+        description: "",
+        stock: "",
+        featured: false,
+        bestSeller: false,
+        new: true,
+      });
+    } catch (error) {
+      console.error("Failed to create product. Please try again.", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="p-6">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-serif font-medium">Add New Product</h2>
         <button
-          onClick={() => navigate('/admin/products')}
+          onClick={() => navigate("/admin/products")}
           className="text-neutral-600 hover:text-neutral-900"
         >
           Cancel
         </button>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white p-6 border border-neutral-200">
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white p-6 border border-neutral-200"
+      >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
           <div>
             <label htmlFor="name" className="block text-sm font-medium mb-2">
@@ -218,7 +277,10 @@ const NewProduct = () => {
           </div>
 
           <div>
-            <label htmlFor="category" className="block text-sm font-medium mb-2">
+            <label
+              htmlFor="category"
+              className="block text-sm font-medium mb-2"
+            >
               Category <span className="text-red-500">*</span>
             </label>
             <select
@@ -272,7 +334,10 @@ const NewProduct = () => {
         </div>
 
         <div className="mb-6">
-          <label htmlFor="description" className="block text-sm font-medium mb-2">
+          <label
+            htmlFor="description"
+            className="block text-sm font-medium mb-2"
+          >
             Description <span className="text-red-500">*</span>
           </label>
           <textarea
@@ -300,7 +365,9 @@ const NewProduct = () => {
         </div>
 
         <div className="mb-6">
-          <label className="block text-sm font-medium mb-2">Product Features</label>
+          <label className="block text-sm font-medium mb-2">
+            Product Features
+          </label>
           <div className="space-y-2">
             <label className="flex items-center">
               <input
@@ -335,13 +402,13 @@ const NewProduct = () => {
           </div>
         </div>
 
-        <button type="submit" className="btn-primary">
-          Create Product
+        <button type="submit" className="btn-primary" disabled={loading}>
+          {loading ? "Creating..." : "Create Product"}
         </button>
       </form>
     </div>
-  )
-}
+  );
+};
 
 // Stats Component
 const Stats = () => {
@@ -351,32 +418,34 @@ const Stats = () => {
 
       <div className="text-center py-12 border border-dashed border-neutral-300 rounded">
         <p className="text-lg text-neutral-500 mb-4">No stats available yet.</p>
-        <p className="text-neutral-500">Stats will be available once you start receiving orders.</p>
+        <p className="text-neutral-500">
+          Stats will be available once you start receiving orders.
+        </p>
       </div>
     </div>
-  )
-}
+  );
+};
 
 // Admin Layout Component
 const AdminLayout = ({ children }) => {
-  const location = useLocation()
-  const navigate = useNavigate()
-  const [isLoggedIn, setIsLoggedIn] = useState(true) // In a real app, check auth status
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { user, isAuthenticated } = useAuth();
 
   const checkAuth = () => {
     // In a real app, check if user is authenticated and is an admin
-    if (!isLoggedIn) {
-      navigate('/login')
-      return false
+    if (!isAuthenticated) {
+      navigate("/login");
+      return false;
     }
-    return true
-  }
+    return true;
+  };
 
   useEffect(() => {
-    checkAuth()
-  }, [])
+    checkAuth();
+  }, []);
 
-  if (!isLoggedIn) return null
+  if (!isAuthenticated) return null;
 
   return (
     <div className="pt-24 pb-16">
@@ -390,7 +459,9 @@ const AdminLayout = ({ children }) => {
               <Link
                 to="/admin"
                 className={`block p-4 hover:bg-neutral-50 ${
-                  location.pathname === '/admin' ? 'bg-neutral-100 font-medium' : ''
+                  location.pathname === "/admin"
+                    ? "bg-neutral-100 font-medium"
+                    : ""
                 }`}
               >
                 Dashboard
@@ -398,7 +469,9 @@ const AdminLayout = ({ children }) => {
               <Link
                 to="/admin/products"
                 className={`block p-4 hover:bg-neutral-50 ${
-                  location.pathname.includes('/admin/products') ? 'bg-neutral-100 font-medium' : ''
+                  location.pathname.includes("/admin/products")
+                    ? "bg-neutral-100 font-medium"
+                    : ""
                 }`}
               >
                 Products
@@ -406,7 +479,9 @@ const AdminLayout = ({ children }) => {
               <Link
                 to="/admin/orders"
                 className={`block p-4 hover:bg-neutral-50 ${
-                  location.pathname.includes('/admin/orders') ? 'bg-neutral-100 font-medium' : ''
+                  location.pathname.includes("/admin/orders")
+                    ? "bg-neutral-100 font-medium"
+                    : ""
                 }`}
               >
                 Orders
@@ -414,15 +489,16 @@ const AdminLayout = ({ children }) => {
               <Link
                 to="/admin/stats"
                 className={`block p-4 hover:bg-neutral-50 ${
-                  location.pathname.includes('/admin/stats') ? 'bg-neutral-100 font-medium' : ''
+                  location.pathname.includes("/admin/stats")
+                    ? "bg-neutral-100 font-medium"
+                    : ""
                 }`}
               >
                 Statistics
               </Link>
               <button
                 onClick={() => {
-                  setIsLoggedIn(false)
-                  navigate('/login')
+                  navigate("/login");
                 }}
                 className="block w-full text-left p-4 text-red-600 hover:bg-neutral-50"
               >
@@ -444,12 +520,12 @@ const AdminLayout = ({ children }) => {
         </div>
       </div>
     </div>
-  )
-}
+  );
+};
 
 // Main Admin Component
 const Admin = () => {
-  return <AdminLayout />
-}
+  return <AdminLayout />;
+};
 
-export default Admin
+export default Admin;

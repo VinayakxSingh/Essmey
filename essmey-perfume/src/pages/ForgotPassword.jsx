@@ -1,27 +1,31 @@
 import { useState } from "react";
 import { useAuth } from "../utils/AuthContext";
 import { useNavigate } from "react-router-dom";
+// import { useToast } from "../utils/ToastContext";
 
 const ForgotPassword = () => {
   const { forgotPassword } = useAuth();
+  const { addToast } = useToast();
   const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
-  const [message, setMessage] = useState(null);
-  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage(null);
-    setError(null);
     setLoading(true);
     try {
       await forgotPassword(email);
-      setMessage("Password reset email sent. Please check your inbox.");
+      addToast(
+        "Password reset email sent. Please check your inbox.",
+        "success"
+      );
       setLoading(false);
     } catch (err) {
-      setError("Failed to send password reset email. Please try again.");
+      addToast(
+        "Failed to send password reset email. Please try again.",
+        "error"
+      );
       setLoading(false);
     }
   };
@@ -35,16 +39,6 @@ const ForgotPassword = () => {
         <h1 className="text-3xl font-semibold mb-8 text-center text-amber-600">
           Forgot Password
         </h1>
-        {message && (
-          <div className="mb-6 text-green-600 text-center font-medium">
-            {message}
-          </div>
-        )}
-        {error && (
-          <div className="mb-6 text-red-600 text-center font-medium">
-            {error}
-          </div>
-        )}
         <div className="mb-5">
           <label
             htmlFor="email"

@@ -1,16 +1,17 @@
 import { useState } from "react";
 import { useAuth } from "../utils/AuthContext";
 import { useNavigate, Navigate, Link } from "react-router-dom";
+// import { useToast } from "../utils/ToastContext";
 
 const Login = () => {
   const { user, login, signup, googleLogin } = useAuth();
+  const { addToast } = useToast();
   const navigate = useNavigate();
 
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
   if (user) {
@@ -19,10 +20,9 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(null);
 
     if (!isLogin && password !== confirmPassword) {
-      setError("Passwords do not match.");
+      addToast("Passwords do not match.", "error");
       return;
     }
 
@@ -36,24 +36,24 @@ const Login = () => {
       setLoading(false);
       navigate("/account");
     } catch (err) {
-      setError(
+      addToast(
         isLogin
           ? "Failed to login. Please check your credentials."
-          : "Failed to sign up. Please try again."
+          : "Failed to sign up. Please try again.",
+        "error"
       );
       setLoading(false);
     }
   };
 
   const handleGoogleSignIn = async () => {
-    setError(null);
     setLoading(true);
     try {
       await googleLogin();
       setLoading(false);
       navigate("/account");
     } catch (err) {
-      setError("Failed to login with Google.");
+      addToast("Failed to login with Google.", "error");
       setLoading(false);
     }
   };
@@ -67,11 +67,6 @@ const Login = () => {
         <h1 className="text-3xl font-semibold mb-8 text-center text-amber-600">
           {isLogin ? "Login" : "Sign Up"}
         </h1>
-        {error && (
-          <div className="mb-6 text-red-600 text-center font-medium">
-            {error}
-          </div>
-        )}
         <div className="mb-5">
           <label
             htmlFor="email"
@@ -151,7 +146,6 @@ const Login = () => {
             type="button"
             onClick={() => {
               setIsLogin(!isLogin);
-              setError(null);
             }}
             className="text-amber-600 hover:underline font-semibold"
           >
