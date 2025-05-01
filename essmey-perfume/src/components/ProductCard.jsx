@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ShoppingBagIcon, HeartIcon } from "@heroicons/react/24/outline";
 import { HeartIcon as HeartSolidIcon } from "@heroicons/react/24/solid";
 import { useAppContext } from "../utils/context";
+import { getImageUrl } from "../utils/sanity";
 
 const FALLBACK_IMAGE = "/images/product-1.jpg";
 
@@ -51,18 +52,21 @@ const ProductCard = ({ product }) => {
   };
 
   const mainImage =
-    product.images && product.images.length > 0
+    product.images && product.images.length > 0 && product.images[0]
       ? product.images[0]
       : FALLBACK_IMAGE;
 
   const handleImageError = (e) => {
     console.error("Error loading product image:", e);
     setImageError(true);
-    e.target.src = FALLBACK_IMAGE;
+    if (e.target.src !== FALLBACK_IMAGE) {
+      e.target.src = FALLBACK_IMAGE;
+    }
   };
 
   const handleImageLoad = () => {
     setImageLoading(false);
+    setImageError(false);
   };
 
   const formatPrice = (price) => {
@@ -95,12 +99,12 @@ const ProductCard = ({ product }) => {
             )}
             <img
               src={mainImage}
-              alt={product.name || "Product"}
+              alt={product.name}
               className={`w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 ${
                 imageLoading ? "opacity-0" : "opacity-100"
               }`}
-              onError={handleImageError}
-              onLoad={handleImageLoad}
+              onLoad={() => setImageLoading(false)}
+              onError={() => setImageError(true)}
               loading="lazy"
             />
             <button

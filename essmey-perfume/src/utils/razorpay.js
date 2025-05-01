@@ -21,7 +21,7 @@ export const openRazorpay = (options) => {
 const initializeRazorpay = (options, resolve, reject) => {
   try {
     const rzp = new window.Razorpay({
-      key: import.meta.env.VITE_RAZORPAY_KEY_ID,
+      key: import.meta.env.VITE_RAZORPAY_KEY,
       amount: options.amount,
       currency: options.currency || "INR",
       name: options.name || "Essmey Perfume",
@@ -39,10 +39,10 @@ const initializeRazorpay = (options, resolve, reject) => {
         color: "#000000",
       },
       modal: {
-        ondismiss: function() {
+        ondismiss: function () {
           reject(new Error("Payment cancelled by user"));
-        }
-      }
+        },
+      },
     });
 
     rzp.on("payment.failed", function (response) {

@@ -3,16 +3,9 @@ import react from "@vitejs/plugin-react";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [
-    react({
-      jsxRuntime: 'automatic',
-      jsxImportSource: 'react',
-      fastRefresh: true,
-      include: ['**/*.jsx', '**/*.js', '**/*.tsx', '**/*.ts']
-    })
-  ],
+  plugins: [react()],
   optimizeDeps: {
-    include: ['react', 'react-dom', '@sanity/client', '@sanity/image-url']
+    include: ["react", "react-dom", "@sanity/client", "@sanity/image-url"],
   },
   fs: { strict: false },
   resolve: {
@@ -24,11 +17,17 @@ export default defineConfig({
     host: true,
     port: 5173,
     strictPort: true,
-    hmr: {
-      protocol: 'ws',
-      host: 'localhost',
-      port: 5173,
-      clientPort: 5173,
+    hmr: false,
+    watch: {
+      usePolling: true,
+      interval: 1000,
+    },
+    proxy: {
+      "/api/sanity": {
+        target: "https://api.sanity.io",
+        changeOrigin: true,
+        secure: true,
+      },
     },
   },
   build: {
@@ -36,10 +35,10 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
-          'react-vendor': ['react', 'react-dom'],
-          'sanity-vendor': ['@sanity/client', '@sanity/image-url']
-        }
-      }
-    }
-  }
+          "react-vendor": ["react", "react-dom"],
+          "sanity-vendor": ["@sanity/client", "@sanity/image-url"],
+        },
+      },
+    },
+  },
 });

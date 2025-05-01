@@ -113,7 +113,7 @@ const Checkout = () => {
     );
   }
 
-  function handleInput(e) {
+  const handleInput = (e) => {
     const { name, value } = e.target;
     if (name === "phone" || name === "pincode") {
       // Only allow numbers
@@ -124,9 +124,9 @@ const Checkout = () => {
     if (errors[name]) {
       setErrors({ ...errors, [name]: "" });
     }
-  }
+  };
 
-  function validate(fields) {
+  const validate = (fields) => {
     let errs = {};
     if (!fields.name || fields.name.length < 2) errs.name = "Enter your name";
     if (!fields.email || !fields.email.includes("@"))
@@ -140,7 +140,7 @@ const Checkout = () => {
     if (!fields.city) errs.city = "Enter city";
     if (!fields.state) errs.state = "Select state";
     return errs;
-  }
+  };
 
   const handleOrder = async (e) => {
     e.preventDefault();
@@ -156,6 +156,7 @@ const Checkout = () => {
     }
 
     try {
+      // First create the order in Sanity
       const orderData = {
         _type: "order",
         items: cartItems.map((item) => ({
@@ -173,48 +174,61 @@ const Checkout = () => {
         status: "pending",
         user: {
           _type: "reference",
-          _ref: user._id,
+          _ref: user.uid,
         },
       };
 
-      // First create the order in Sanity
       const createdOrder = await client.create(orderData);
-      
-      // Then open Razorpay payment
-      const response = await openRazorpay({
+
+      // Open Razorpay payment window
+      const razorpayOptions = {
+        key: import.meta.env.VITE_RAZORPAY_KEY,
         amount: cartSubtotal * 100,
         currency: "INR",
-        orderId: createdOrder._id,
         name: "Essmey Perfume",
         description: "Payment for your order",
+        order_id: createdOrder._id,
+        handler: async function (response) {
+          try {
+            // Update the order with payment details
+            await client
+              .patch(createdOrder._id)
+              .set({
+                status: "paid",
+                paymentId: response.razorpay_payment_id,
+                orderId: response.razorpay_order_id,
+                signature: response.razorpay_signature,
+              })
+              .commit();
+
+            clearCart();
+            setPlacedOrder(response.razorpay_order_id);
+            addToast(
+              "Payment successful! Your order has been placed.",
+              "success"
+            );
+            navigate("/thank-you");
+          } catch (error) {
+            console.error("Error updating order:", error);
+            addToast("Error updating order status", "error");
+          }
+        },
         prefill: {
           name: form.name,
           email: form.email,
           contact: form.phone,
         },
-      });
+        theme: {
+          color: "#000000",
+        },
+      };
 
-      if (response) {
-        // Update the order with payment details
-        await client
-          .patch(createdOrder._id)
-          .set({
-            status: "paid",
-            paymentId: response.razorpay_payment_id,
-            orderId: response.razorpay_order_id,
-            signature: response.razorpay_signature,
-          })
-          .commit();
-
-        clearCart();
-        setPlacedOrder(response.razorpay_order_id);
-        addToast("Payment successful! Your order has been placed.", "success");
-        navigate("/thank-you");
-      }
+      await openRazorpay(razorpayOptions);
     } catch (error) {
       console.error("Order error:", error);
       setError(error.message || "Something went wrong with the payment");
       addToast(error.message || "Payment failed or was cancelled", "error");
+    } finally {
       setLoading(false);
     }
   };
@@ -232,7 +246,7 @@ const Checkout = () => {
             Use this Order ID to&nbsp;
             <a
               className="text-amber-700 underline hover:text-amber-800 transition-colors"
-              href="/transorder"
+              href="/track-order"
               onClick={(e) => {
                 e.preventDefault();
                 navigate("/track-order");

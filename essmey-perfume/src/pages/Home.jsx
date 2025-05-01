@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import ProductCard from "../components/ProductCard";
-import { client } from "../utils/sanity";
+import { client, getImageUrl } from "../utils/sanity";
 import { StarIcon } from "@heroicons/react/24/solid";
 
 const Home = () => {
@@ -33,7 +33,16 @@ const Home = () => {
             new,
             description,
             notes,
-            "images": images[].asset->url
+            "images": images[].asset->{
+              _id,
+              url,
+              metadata {
+                dimensions {
+                  width,
+                  height
+                }
+              }
+            }
           }`
         );
 
@@ -41,12 +50,22 @@ const Home = () => {
           throw new Error("Invalid products data received");
         }
 
+        // Process images to ensure they have proper URLs
+        const processedProducts = products.map((product) => ({
+          ...product,
+          images: product.images?.map((image) => image?.url) || [],
+        }));
+
         // Filter and set featured products
-        const featured = products.filter((p) => p.featured).slice(0, 4);
+        const featured = processedProducts
+          .filter((p) => p.featured)
+          .slice(0, 4);
         setFeaturedProducts(featured);
 
         // Filter and set best sellers
-        const bestSelling = products.filter((p) => p.bestSeller).slice(0, 4);
+        const bestSelling = processedProducts
+          .filter((p) => p.bestSeller)
+          .slice(0, 4);
         setBestSellers(bestSelling);
 
         // If no products are found, use sample data
@@ -144,7 +163,27 @@ const Home = () => {
 
   const handleImageError = (e) => {
     console.error("Error loading image:", e);
-    e.target.src = "/images/placeholder.jpg";
+    e.target.src =
+      process.env.NODE_ENV === "development"
+        ? "/images/placeholder.jpg"
+        : "/images/placeholder.jpg";
+  };
+
+  const getImageUrl = (image) => {
+    if (!image || !image.asset || !image.asset._ref) {
+      return process.env.NODE_ENV === "development"
+        ? "/images/placeholder.jpg"
+        : "/images/placeholder.jpg";
+    }
+
+    try {
+      return getImageUrl(image);
+    } catch (error) {
+      console.error("Error generating image URL:", error);
+      return process.env.NODE_ENV === "development"
+        ? "/images/placeholder.jpg"
+        : "/images/placeholder.jpg";
+    }
   };
 
   return (
@@ -242,7 +281,7 @@ const Home = () => {
             >
               <div className="h-[340px] md:h-[370px] overflow-hidden bg-neutral-100 flex items-center justify-center">
                 <img
-                  src="/images/unisex.png"
+                  src="/images/collage.jpg"
                   alt="Unisex Perfumes"
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
                   onError={handleImageError}

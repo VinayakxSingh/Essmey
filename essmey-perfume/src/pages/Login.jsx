@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { useAuth } from "../utils/AuthContext";
 import { useNavigate, Navigate, Link } from "react-router-dom";
-// import { useToast } from "../utils/ToastContext";
+import { useToastContext } from "../utils/ToastContext";
 
 const Login = () => {
   const { user, login, signup, googleLogin } = useAuth();
-  const { addToast } = useToast();
+  const { addToast } = useToastContext();
   const navigate = useNavigate();
 
   const [isLogin, setIsLogin] = useState(true);
