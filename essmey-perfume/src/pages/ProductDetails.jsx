@@ -5,6 +5,8 @@ import { useState, useEffect } from "react";
 import { ShoppingBagIcon, HeartIcon } from "@heroicons/react/24/outline";
 import { HeartIcon as HeartSolidIcon } from "@heroicons/react/24/solid";
 
+import { ShareIcon } from "@heroicons/react/24/outline";
+
 const FALLBACK_IMAGE = "/images/product-1.jpg";
 
 const ProductDetails = () => {
@@ -13,6 +15,7 @@ const ProductDetails = () => {
     addToCart,
     addToWishlist,
     removeFromWishlist,
+
     isInWishlist,
     error: contextError,
     wishlist,
@@ -36,7 +39,14 @@ const ProductDetails = () => {
             price,
             stock,
             description,
-            "image": images[0].asset->url
+            "image": images[0].asset->url,
+            "images": images[]->asset->url,
+            category,
+            "notes": {
+              "top": notes.top[],
+              "middle": notes.middle[],
+              "base": notes.base[]
+            }
           }`,
           { id }
         );
@@ -66,10 +76,10 @@ const ProductDetails = () => {
 
       if (isInWishlist(product._id)) {
         removeFromWishlist(product._id);
-        console.log("Removed from wishlist");
+        // console.log("Removed from wishlist");
       } else {
         addToWishlist(product);
-        console.log("Added to wishlist");
+        // console.log("Added to wishlist");
       }
     } catch (err) {
       console.error("Error handling wishlist:", err);
@@ -87,9 +97,38 @@ const ProductDetails = () => {
     }
     try {
       addToCart(product, quantity);
-      console.log(`${product.name} added to cart!`);
+      // console.log(`${product.name} added to cart!`);
     } catch (error) {
       console.error("Failed to add to cart", error);
+    }
+  };
+
+  const handleShareClick = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const shareData = {
+      title: product.name,
+      text: `Check out this product: ${product.name}`,
+      url: window.location.href,
+    };
+
+    if (navigator.share) {
+      try {
+        await navigator.share(shareData);
+        // console.log("Shared successfully");
+      } catch (err) {
+        console.error("Error sharing:", err);
+      }
+    } else if (navigator.clipboard) {
+      try {
+        await navigator.clipboard.writeText(shareData.url);
+        // addToast("Link copied to clipboard");
+      } catch (err) {
+        console.error("Failed to copy link:", err);
+      }
+    } else {
+      alert("Sharing not supported on this browser");
     }
   };
 
@@ -125,77 +164,150 @@ const ProductDetails = () => {
             {contextError}
           </div>
         )}
-        <div className="grid gap-10 md:grid-cols-2">
-          <div>
-            <div className="aspect-[3/4] bg-neutral-100 relative rounded overflow-hidden mb-4">
+        <div className="flex flex-col lg:flex-row gap-12">
+          {/* Product Images */}
+          <div className="flex-1">
+            <div className="relative">
               <img
                 src={product.image || FALLBACK_IMAGE}
                 alt={product.name}
-                className="w-full h-full object-cover"
+                className="w-full h-[500px] object-cover rounded-lg"
                 onError={(e) => {
                   e.target.src = FALLBACK_IMAGE;
                 }}
               />
-              <button
-                onClick={handleWishlistClick}
-                className="absolute top-3 right-3 p-2 rounded-full bg-white bg-opacity-80 hover:bg-opacity-100 shadow transition-all duration-200"
-                aria-label={
-                  isInWishlist(product._id)
-                    ? "Remove from wishlist"
-                    : "Add to wishlist"
-                }
-              >
-                {isInWishlist(product._id) ? (
-                  <HeartSolidIcon className="h-7 w-7 text-red-500" />
-                ) : (
-                  <HeartIcon className="h-7 w-7 text-black" />
-                )}
-              </button>
             </div>
           </div>
-          <div>
-            <h1 className="text-3xl font-serif font-bold mb-4">
-              {product.name}
-            </h1>
-            <p className="text-xl font-medium text-black mb-2">
-              ₹{product.price?.toFixed(2)}
-            </p>
-            <div className="mb-4 text-neutral-700">{product.description}</div>
-            <div className="mb-4">
-              <span
-                className={`text-sm ${product.stock > 0 ? "text-green-600" : "text-red-600"}`}
-              >
-                {product.stock > 0
-                  ? `${product.stock} left in stock`
-                  : "Out of stock"}
-              </span>
-            </div>
-            <div className="flex items-center gap-3 mb-8">
-              <span className="text-sm">Quantity:</span>
-              <input
-                type="number"
-                min={1}
-                max={product.stock || 10}
-                value={quantity}
-                onChange={(e) =>
-                  setQuantity(
-                    Math.max(
-                      1,
-                      Math.min(product.stock || 10, Number(e.target.value))
-                    )
-                  )
-                }
-                className="w-16 border border-neutral-300 rounded px-2 py-1"
-                disabled={product.stock <= 0}
-              />
-              <button
-                onClick={handleAddToCart}
-                disabled={product.stock <= 0}
-                className="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ShoppingBagIcon className="h-5 w-5" />
-                Add to Cart
-              </button>
+
+          {/* Product Info */}
+          <div className="flex-1 space-y-8">
+            <div>
+              <h1 className="text-3xl font-serif font-bold mb-4">{product.name}</h1>
+              <p className="text-lg text-amber-600 font-semibold mb-6">
+                ₹{product.price?.toFixed(2)}
+              </p>
+
+              <div className="flex items-center gap-4 mb-8">
+                <button
+                  onClick={handleWishlistClick}
+                  className="p-2 rounded-full bg-white shadow-md hover:shadow-lg transition-shadow"
+                >
+                  {isInWishlist(product._id) ? (
+                    <HeartSolidIcon className="h-6 w-6 text-red-500" />
+                  ) : (
+                    <HeartIcon className="h-6 w-6 text-black" />
+                  )}
+                </button>
+                <button
+                  onClick={handleShareClick}
+                  className="p-2 rounded-full bg-white shadow-md hover:shadow-lg transition-shadow"
+                >
+                  <ShareIcon className="h-6 w-6 text-black" />
+                </button>
+              </div>
+
+              <div className="space-y-4 mb-8">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm text-neutral-500">Quantity:</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                      className="w-8 h-8 rounded-md border flex items-center justify-center hover:bg-neutral-100"
+                    >
+                      <span className="text-lg">-</span>
+                    </button>
+                    <input
+                      type="number"
+                      value={quantity}
+                      onChange={(e) => setQuantity(Math.max(1, Math.min(product.stock || 100, parseInt(e.target.value) || 1)))}
+                      
+                      max={product.stock || 100}
+                      className="w-20 h-10 px-3 border rounded-md text-center"
+                    />
+                    <button
+                      onClick={() => setQuantity(Math.min(product.stock || 100, quantity + 1))}
+                      className="w-8 h-8 rounded-md border flex items-center justify-center hover:bg-neutral-100"
+                    >
+                      <span className="text-lg">+</span>
+                    </button>
+                  </div>
+                </div>
+                <button
+                  onClick={handleAddToCart}
+                  className="btn-primary w-full text-lg py-4"
+                  disabled={product.stock === 0 || quantity > product.stock}
+                >
+                  {product.stock === 0
+                    ? "Out of Stock"
+                    : quantity > product.stock
+                    ? `Only ${product.stock} available`
+                    : "Add to Cart"}
+                </button>
+              </div>
+
+              <div className="space-y-6">
+                <p className="text-neutral-600 leading-relaxed">{product.description}</p>
+
+                {/* Perfume Notes Section */}
+                <div>
+                  <h2 className="text-xl font-serif font-bold mb-4">Fragrance Notes</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Top Notes */}
+                    <div className="bg-white rounded-lg shadow-sm p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium text-neutral-600">Top Notes</h3>
+                        <div className="w-16 h-16 bg-amber-50 rounded-full flex items-center justify-center">
+                          <span className="text-amber-500 text-2xl">↑</span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        {product.notes?.top?.map((note, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                            <span className="text-sm text-neutral-500">{note}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Middle Notes */}
+                    <div className="bg-white rounded-lg shadow-sm p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium text-neutral-600">Middle Notes</h3>
+                        <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center">
+                          <span className="text-amber-500 text-2xl">→</span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        {product.notes?.middle?.map((note, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-amber-400"></div>
+                            <span className="text-sm text-neutral-500">{note}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Base Notes */}
+                    <div className="bg-white rounded-lg shadow-sm p-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-medium text-neutral-600">Base Notes</h3>
+                        <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center">
+                          <span className="text-amber-500 text-2xl">↓</span>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        {product.notes?.base?.map((note, index) => (
+                          <div key={index} className="flex items-center gap-2">
+                            <div className="w-2 h-2 rounded-full bg-amber-500"></div>
+                            <span className="text-sm text-neutral-500">{note}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

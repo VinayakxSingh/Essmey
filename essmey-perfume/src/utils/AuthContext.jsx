@@ -5,6 +5,7 @@ import React, {
   useState,
   useCallback,
 } from "react";
+import { useToastContext } from "../utils/ToastContext";
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -16,6 +17,7 @@ import {
 } from "firebase/auth";
 import { auth, handleAuthError } from "./firebase";
 import { client } from "./sanity";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 const logError = (error, context) => {
   console.error(`[Auth Error] ${context}:`, error);
@@ -28,6 +30,7 @@ const logError = (error, context) => {
 const AuthContext = createContext();
 
 const AuthProvider = ({ children }) => {
+  const { addToast } = useToastContext();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -190,6 +193,13 @@ const AuthProvider = ({ children }) => {
       setError(null);
       setLoading(true);
       const result = await signOut(auth);
+      
+      // Show logout success toast
+      if (user) {
+        const userName = user.email.split('@')[0];
+        addToast(`${userName} has successfully been logged out`, );
+      }
+      
       setLoading(false);
       return result;
     } catch (error) {
@@ -214,6 +224,9 @@ const AuthProvider = ({ children }) => {
 
   if (loading) {
     return <div>Loading...</div>;
+  }
+  if (loading) {
+    return <LoadingSpinner />;
   }
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { client } from "../utils/sanity";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 function Blog() {
   const [posts, setPosts] = useState([]);
@@ -63,7 +64,7 @@ function Blog() {
       };
 
       await client.create(postData);
-      console.log("Post created successfully!");
+      // console.log("Post created successfully!");
       setForm({ title: "", excerpt: "", content: "", categories: "" });
       setWriteMode(false);
       // Refresh posts
@@ -98,7 +99,7 @@ function Blog() {
     }
   };
 
-  if (loading) return <div className="text-center py-10">Loading...</div>;
+  if (loading) return <LoadingSpinner />;
   if (error)
     return <div className="text-center text-red-600 py-10">{error}</div>;
 

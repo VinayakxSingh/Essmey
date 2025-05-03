@@ -50,15 +50,19 @@ const Checkout = () => {
   } = useAppContext();
   const { user, isLoading } = useAuth();
   const { addToast } = useToastContext();
-  const [placedOrder, setPlacedOrder] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const formRef = useRef();
   const navigate = useNavigate();
 
-  // Handle authentication check and navigation
   useEffect(() => {
     if (!isLoading && !user) {
+      // Save cart state to localStorage before redirecting
+      try {
+        localStorage.setItem('cart', JSON.stringify(cartItems));
+      } catch (error) {
+        console.error('Error saving cart state:', error);
+      }
       navigate("/login", {
         state: {
           from: "/checkout",
@@ -89,7 +93,6 @@ const Checkout = () => {
 
   const [errors, setErrors] = useState({});
 
-  // Show loading state while checking authentication
   if (isLoading) {
     return (
       <div className="pt-28 pb-20 min-h-[50vh] flex items-center justify-center">
@@ -101,8 +104,7 @@ const Checkout = () => {
     );
   }
 
-  // Show empty cart message if cart is empty and no order is placed
-  if (cartItems.length === 0 && !placedOrder) {
+  if (cartItems.length === 0) {
     return (
       <div className="pt-28 pb-20 min-h-[50vh] flex flex-col items-center justify-center">
         <h2 className="text-2xl mb-3">Your cart is empty.</h2>
@@ -116,11 +118,9 @@ const Checkout = () => {
   const handleInput = (e) => {
     const { name, value } = e.target;
     if (name === "phone" || name === "pincode") {
-      // Only allow numbers
       if (/[^0-9]/.test(value) && value !== "") return;
     }
     setForm({ ...form, [name]: value });
-    // Clear error when user starts typing
     if (errors[name]) {
       setErrors({ ...errors, [name]: "" });
     }
@@ -147,7 +147,6 @@ const Checkout = () => {
     setLoading(true);
     setError(null);
 
-    // Validate form before proceeding
     const validationErrors = validate(form);
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -156,63 +155,27 @@ const Checkout = () => {
     }
 
     try {
-      // First create the order in Sanity
-      const orderData = {
-        _type: "order",
-        items: cartItems.map((item) => ({
-          _type: "orderItem",
-          product: {
-            _type: "reference",
-            _ref: item._id,
-          },
-          quantity: item.quantity,
-          price: item.price,
-        })),
-        totalAmount: cartSubtotal,
-        shippingAddress: form,
-        paymentMethod: "razorpay",
-        status: "pending",
-        user: {
-          _type: "reference",
-          _ref: user.uid,
-        },
-      };
+      const userDoc = await client.fetch(
+        `*[_type == "user" && _id == $userId][0]`,
+        { userId: user.uid }
+      );
+      if (!userDoc) {
+        await client.create({
+          _type: "user",
+          _id: user.uid,
+          name: user.displayName || form.name,
+          email: user.email || form.email,
+          phone: form.phone,
+        });
+      }
 
-      const createdOrder = await client.create(orderData);
-
-      // Open Razorpay payment window
+      // Razorpay options (handler removed!)
       const razorpayOptions = {
-        key: import.meta.env.VITE_RAZORPAY_KEY,
         amount: cartSubtotal * 100,
         currency: "INR",
         name: "Essmey Perfume",
         description: "Payment for your order",
-        order_id: createdOrder._id,
-        handler: async function (response) {
-          try {
-            // Update the order with payment details
-            await client
-              .patch(createdOrder._id)
-              .set({
-                status: "paid",
-                paymentId: response.razorpay_payment_id,
-                orderId: response.razorpay_order_id,
-                signature: response.razorpay_signature,
-              })
-              .commit();
-
-            clearCart();
-            setPlacedOrder(response.razorpay_order_id);
-            addToast(
-              "Payment successful! Your order has been placed.",
-              "success"
-            );
-            navigate("/thank-you");
-          } catch (error) {
-            console.error("Error updating order:", error);
-            addToast("Error updating order status", "error");
-          }
-        },
+        orderId: undefined, // If you have backend, insert actual orderId
         prefill: {
           name: form.name,
           email: form.email,
@@ -223,7 +186,79 @@ const Checkout = () => {
         },
       };
 
-      await openRazorpay(razorpayOptions);
+      await openRazorpay(razorpayOptions)
+        .then(async (response) => {
+          // Payment successful
+          const newOrderId = generateOrderId();
+          const orderData = {
+            _type: "order",
+            orderId: newOrderId,
+            customerName: form.name,
+            email: form.email,
+            phone: form.phone,
+            address: form.address,
+            city: form.city,
+            state: form.state,
+            pincode: form.pincode,
+            notes: form.notes,
+            deliveryStatus: "confirmed",
+            items: cartItems.map((item) => ({
+              _key:
+                item._id ||
+                item.name + "-" + Math.random().toString(36).substr(2, 9),
+              name: item.name,
+              price: item.price,
+              quantity: item.quantity,
+            })),
+            total: cartSubtotal,
+            placedAt: new Date().toISOString(),
+            userId: user.uid,
+          };
+
+          try {
+            try {
+              // First, create the order
+              const orderResult = await client.create(orderData);
+              // console.log('Order created successfully:', orderResult);
+              
+              // Verify the order was created by fetching it back
+              const createdOrder = await client.fetch(
+                `*[_type == "order" && orderId == $orderId][0]`,
+                { orderId: newOrderId }
+              );
+              
+              if (!createdOrder) {
+                throw new Error('Order not found after creation');
+              }
+              
+              // console.log('Order verified in CMS:', createdOrder);
+              
+              // Clear cart and show success message
+              clearCart();
+              addToast(
+                "Payment successful! Your order has been placed.",
+                "success"
+              );
+              
+              // Wait a moment for the order to be created before navigating
+              setTimeout(() => {
+                navigate("/thank-you", { state: { orderId: newOrderId } });
+              }, 500);
+            } catch (error) {
+              console.error('Error in order creation:', error);
+              setError(error.message || 'Failed to create order in CMS');
+              addToast('Failed to create order in CMS. Please try again.', 'error');
+              throw error; // Re-throw to maintain the error chain
+            }
+          } catch (error) {
+            console.error("Error creating order:", error);
+            addToast("Error creating order after payment", "error");
+          }
+        })
+        .catch((error) => {
+          setError(error.message || "Payment failed or was cancelled");
+          addToast(error.message || "Payment failed or was cancelled", "error");
+        });
     } catch (error) {
       console.error("Order error:", error);
       setError(error.message || "Something went wrong with the payment");
@@ -232,37 +267,6 @@ const Checkout = () => {
       setLoading(false);
     }
   };
-
-  if (placedOrder) {
-    return (
-      <div className="pt-28 pb-20 text-center min-h-[60vh] flex flex-col items-center justify-center">
-        <h2 className="text-2xl font-bold mb-4">Order Placed Successfully!</h2>
-        <p className="mb-6">
-          Thank you for your purchase.
-          <br />
-          <strong>Your Order ID is {placedOrder}.</strong>
-          <br />
-          <span>
-            Use this Order ID to&nbsp;
-            <a
-              className="text-amber-700 underline hover:text-amber-800 transition-colors"
-              href="/track-order"
-              onClick={(e) => {
-                e.preventDefault();
-                navigate("/track-order");
-              }}
-            >
-              track your order
-            </a>
-            .
-          </span>
-        </p>
-        <button className="btn-primary" onClick={() => navigate("/shop")}>
-          Continue Shopping
-        </button>
-      </div>
-    );
-  }
 
   return (
     <div className="pt-24 pb-16 min-h-[70vh]">

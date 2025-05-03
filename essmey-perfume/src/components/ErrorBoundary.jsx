@@ -1,12 +1,6 @@
 import React from "react";
-import { useNavigate } from "react-router-dom";
-
-const logError = (error, errorInfo) => {
-  console.error("Error caught by boundary:", error, errorInfo);
-  if (process.env.NODE_ENV === "production") {
-    // Example: sendToErrorTracking(error, errorInfo);
-  }
-};
+import { toast } from "react-hot-toast";
+import { trackError } from "../utils/analytics";
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -15,6 +9,7 @@ class ErrorBoundary extends React.Component {
       hasError: false,
       error: null,
       errorInfo: null,
+      errorTimestamp: null,
     };
   }
 
@@ -26,9 +21,17 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    logError(error, errorInfo);
+    const timestamp = new Date().toISOString();
+    
+    // Track error using our analytics service
+    trackError(error, "ErrorBoundary");
+    
+    // Show toast notification
+    toast.error("An error occurred. Please try again later.");
+    
     this.setState({
       errorInfo,
+      errorTimestamp: timestamp
     });
   }
 
@@ -41,8 +44,8 @@ class ErrorBoundary extends React.Component {
               Something went wrong
             </h2>
             <p className="text-gray-600 mb-6">
-              We're sorry, but there was an error loading this page. Our team
-              has been notified and is working to fix the issue.
+              We're sorry, but there was an error loading this page. 
+              Our team has been notified and is working to fix the issue.
             </p>
             <div className="space-y-4">
               <button
@@ -53,9 +56,9 @@ class ErrorBoundary extends React.Component {
               </button>
               <button
                 onClick={() => (window.location.href = "/")}
-                className="w-full px-4 py-2 bg-gray-200 text-gray-800 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors"
+                className="w-full px-4 py-2 border border-red-600 text-red-600 rounded-md hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-colors"
               >
-                Go to Homepage
+                Go to Home
               </button>
             </div>
             {process.env.NODE_ENV === "development" && (

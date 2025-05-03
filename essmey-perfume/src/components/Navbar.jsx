@@ -43,8 +43,8 @@ const Navbar = () => {
 
   return (
     <header
-      className={`fixed top-0 left-0 z-50 w-full transition-all duration-300 ${
-        isScrolled ? "bg-white shadow-md py-2" : "bg-transparent py-4"
+      className={`fixed top-0 left-0 z-50 w-full transition-all duration-300 mb-5 ${
+        isScrolled ? "bg-white shadow-md py-2 mb-5" : " mb-5 bg-transparent py-4"
       }`}
     >
       <div className="container-custom flex items-center justify-between">
@@ -56,7 +56,7 @@ const Navbar = () => {
         </Link>
 
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex items-center space-x-8">
+        <nav className="hidden md:flex items-center space-x-8 " >
           <Link to="/" className="nav-link hover:text-amber transition-colors">
             Home
           </Link>

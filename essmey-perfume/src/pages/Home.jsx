@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import ProductCard from "../components/ProductCard";
 import { client, getImageUrl } from "../utils/sanity";
 import { StarIcon } from "@heroicons/react/24/solid";
-
+import "../utils/uiverse.css";
 const Home = () => {
   const [featuredProducts, setFeaturedProducts] = useState([]);
   const [bestSellers, setBestSellers] = useState([]);
@@ -14,12 +14,30 @@ const Home = () => {
   const [loadingTestimonials, setLoadingTestimonials] = useState(true);
   const [error, setError] = useState(null);
 
+  // Cache keys for sessionStorage
+  const FEATURED_PRODUCTS_KEY = 'featured_products';
+  const BESTSELLERS_KEY = 'bestsellers';
+  const TESTIMONIALS_KEY = 'testimonials';
+
   // Fetch all products from Sanity just once on mount
   useEffect(() => {
     const fetchProducts = async () => {
       try {
         setLoadingProducts(true);
         setError(null);
+
+        // Check cache first
+        const cachedFeatured = sessionStorage.getItem(FEATURED_PRODUCTS_KEY);
+        const cachedBestSellers = sessionStorage.getItem(BESTSELLERS_KEY);
+        const cacheTimestamp = sessionStorage.getItem('home_cache_timestamp');
+
+        // Use cache if it's valid (less than 1 hour old)
+        if (cachedFeatured && cachedBestSellers && cacheTimestamp && 
+            (Date.now() - parseInt(cacheTimestamp)) < 3600000) {
+          setFeaturedProducts(JSON.parse(cachedFeatured));
+          setBestSellers(JSON.parse(cachedBestSellers));
+          return;
+        }
 
         const products = await client.fetch(
           `*[_type == "product"]{
@@ -33,16 +51,7 @@ const Home = () => {
             new,
             description,
             notes,
-            "images": images[].asset->{
-              _id,
-              url,
-              metadata {
-                dimensions {
-                  width,
-                  height
-                }
-              }
-            }
+            "images": images[].asset->url
           }`
         );
 
@@ -50,25 +59,17 @@ const Home = () => {
           throw new Error("Invalid products data received");
         }
 
-        // Process images to ensure they have proper URLs
-        const processedProducts = products.map((product) => ({
-          ...product,
-          images: product.images?.map((image) => image?.url) || [],
-        }));
+        const featured = products.filter((p) => p.featured).slice(0, 4);
+        const bestSellers = products.filter((p) => p.bestSeller).slice(0, 4);
 
-        // Filter and set featured products
-        const featured = processedProducts
-          .filter((p) => p.featured)
-          .slice(0, 4);
+        // Cache the results
+        sessionStorage.setItem(FEATURED_PRODUCTS_KEY, JSON.stringify(featured));
+        sessionStorage.setItem(BESTSELLERS_KEY, JSON.stringify(bestSellers));
+        sessionStorage.setItem('home_cache_timestamp', Date.now().toString());
+
         setFeaturedProducts(featured);
+        setBestSellers(bestSellers);
 
-        // Filter and set best sellers
-        const bestSelling = processedProducts
-          .filter((p) => p.bestSeller)
-          .slice(0, 4);
-        setBestSellers(bestSelling);
-
-        // If no products are found, use sample data
         if (products.length === 0) {
           const { products: sampleProducts } = await import(
             "../utils/sampleData"
@@ -76,13 +77,11 @@ const Home = () => {
           setFeaturedProducts(
             sampleProducts.filter((p) => p.featured).slice(0, 4)
           );
-          setBestSellers(
-            sampleProducts.filter((p) => p.bestSeller).slice(0, 4)
-          );
-          console.log("Using sample data for demonstration");
+          setBestSellers(sampleProducts.filter((p) => p.bestSeller).slice(0, 4));
+          trackError(new Error("No products found"), "Home.fetchProducts");
         }
       } catch (error) {
-        console.error("Error fetching products:", error);
+        trackError(error, "Home.fetchProducts");
         setError("Failed to load products");
 
         // Fallback to sample data
@@ -93,21 +92,40 @@ const Home = () => {
           sampleProducts.filter((p) => p.featured).slice(0, 4)
         );
         setBestSellers(sampleProducts.filter((p) => p.bestSeller).slice(0, 4));
-        console.log("Using sample data for demonstration");
       } finally {
         setLoadingProducts(false);
       }
     };
 
     fetchProducts();
+
+    // Cleanup cache after 24 hours
+    return () => {
+      const cacheTimestamp = sessionStorage.getItem('home_cache_timestamp');
+      if (cacheTimestamp && (Date.now() - parseInt(cacheTimestamp)) > 86400000) {
+        sessionStorage.removeItem(FEATURED_PRODUCTS_KEY);
+        sessionStorage.removeItem(BESTSELLERS_KEY);
+        sessionStorage.removeItem('home_cache_timestamp');
+      }
+    };
   }, []);
 
-  // Fetch testimonials
   useEffect(() => {
     const fetchTestimonials = async () => {
       try {
         setLoadingTestimonials(true);
         setError(null);
+
+        // Check cache first
+        const cachedTestimonials = sessionStorage.getItem(TESTIMONIALS_KEY);
+        const cacheTimestamp = sessionStorage.getItem('testimonials_cache_timestamp');
+
+        // Use cache if it's valid (less than 1 hour old)
+        if (cachedTestimonials && cacheTimestamp && 
+            (Date.now() - parseInt(cacheTimestamp)) < 3600000) {
+          setTestimonials(JSON.parse(cachedTestimonials));
+          return;
+        }
 
         const data = await client.fetch(
           `*[_type == "testimonial"] | order(_createdAt desc)[0...6] {
@@ -123,18 +141,21 @@ const Home = () => {
           throw new Error("Invalid testimonials data received");
         }
 
+        // Cache the results
+        sessionStorage.setItem(TESTIMONIALS_KEY, JSON.stringify(data));
+        sessionStorage.setItem('testimonials_cache_timestamp', Date.now().toString());
+
         setTestimonials(data);
 
-        // If no testimonials are found, use sample data
         if (data.length === 0) {
           const { testimonials: sampleTestimonials } = await import(
             "../utils/sampleData"
           );
           setTestimonials(sampleTestimonials);
-          console.log("Using sample testimonials for demonstration");
+          trackError(new Error("No testimonials found"), "Home.fetchTestimonials");
         }
       } catch (error) {
-        console.error("Error fetching testimonials:", error);
+        trackError(error, "Home.fetchTestimonials");
         setError("Failed to load testimonials");
 
         // Fallback to sample data
@@ -142,13 +163,21 @@ const Home = () => {
           "../utils/sampleData"
         );
         setTestimonials(sampleTestimonials);
-        console.log("Using sample testimonials for demonstration");
       } finally {
         setLoadingTestimonials(false);
       }
     };
 
     fetchTestimonials();
+
+    // Cleanup cache after 24 hours
+    return () => {
+      const cacheTimestamp = sessionStorage.getItem('testimonials_cache_timestamp');
+      if (cacheTimestamp && (Date.now() - parseInt(cacheTimestamp)) > 86400000) {
+        sessionStorage.removeItem(TESTIMONIALS_KEY);
+        sessionStorage.removeItem('testimonials_cache_timestamp');
+      }
+    };
   }, []);
 
   // Rotating testimonials if there are at least 2
@@ -212,13 +241,10 @@ const Home = () => {
               meticulously created to reflect your individual personality.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <Link to="/shop" className="btn-primary">
+              <Link to="/shop" className="btn-secondary">
                 Explore Collection
               </Link>
-              <Link
-                to="/about"
-                className="essmey-hero-about-btn border-2 border-white text-white bg-black hover:bg-white hover:text-black transition duration-300"
-              >
+              <Link to="/about" className="btn-primary">
                 Our Story
               </Link>
             </div>
@@ -331,7 +357,7 @@ const Home = () => {
           )}
 
           <div className="text-center mt-12">
-            <Link to="/shop" className="btn-secondary">
+            <Link to="/shop" className="popame" style={{ color: "black" }}>
               View All Products
             </Link>
           </div>
@@ -404,7 +430,7 @@ const Home = () => {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {bestSellers.map((product) => (
+              {featuredProducts.map((product) => (
                 <ProductCard key={product._id} product={product} />
               ))}
             </div>
@@ -413,78 +439,62 @@ const Home = () => {
       </section>
 
       {/* Testimonials */}
-      <section className="py-16">
+      <section className="py-16 bg-light-cream">
         <div className="container-custom">
-          <h2 className="text-3xl font-serif font-medium mb-2 text-center">
-            WHAT OUR CUSTOMERS SAY
+          <h2 className="text-3xl font-serif font-medium mb-12 text-center">
+            What Our Customers Say
           </h2>
-          <p className="text-center text-neutral-600 mb-12">
-            Discover why our customers love Essmey
-          </p>
-
-          {error ? (
-            <div className="text-center text-red-500 py-8">{error}</div>
-          ) : loadingTestimonials ? (
-            <div className="max-w-3xl mx-auto text-center">
-              <div className="animate-pulse">
-                <div className="h-4 bg-neutral-100 rounded w-3/4 mx-auto"></div>
-                <div className="h-4 bg-neutral-100 rounded w-1/2 mx-auto mt-4"></div>
-                <div className="h-4 bg-neutral-100 rounded w-1/4 mx-auto mt-4"></div>
-              </div>
-            </div>
-          ) : testimonials.length > 0 ? (
-            <div className="max-w-3xl mx-auto">
-              <div className="relative">
-                {testimonials.map((testimonial, index) => (
-                  <motion.div
-                    key={testimonial._id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: index === activeTestimonial ? 1 : 0 }}
-                    transition={{ duration: 0.5 }}
-                    className={`absolute inset-0 ${
-                      index === activeTestimonial ? "block" : "hidden"
-                    }`}
-                  >
-                    <div className="text-center">
-                      <div className="flex justify-center mb-4">
-                        {[...Array(5)].map((_, i) => (
-                          <StarIcon
-                            key={i}
-                            className={`h-5 w-5 ${
-                              i < testimonial.rating
-                                ? "text-yellow-400"
-                                : "text-neutral-300"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <p className="text-lg italic mb-6">{testimonial.text}</p>
-                      <p className="font-medium">{testimonial.name}</p>
+          <div className="relative h-[400px]">
+            {testimonials.map((testimonial, index) => (
+              <motion.div
+                key={testimonial._id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: index === activeTestimonial ? 1 : 0, y: index === activeTestimonial ? 0 : 20 }}
+                transition={{ duration: 0.5 }}
+                className={`absolute inset-0 transition-all duration-500 ${
+                  index === activeTestimonial ? "opacity-100 z-10" : "opacity-0 z-0"
+                }`}
+              >
+                <div className="flex flex-col items-center justify-center h-full px-4">
+                  <div className="flex justify-center mb-6">
+                    {[...Array(5)].map((_, i) => (
+                      <StarIcon
+                        key={i}
+                        className={`h-6 w-6 m-1 ${
+                          i < testimonial.rating
+                            ? "text-amber-500"
+                            : "text-neutral-300"
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <div className="max-w-2xl text-center">
+                    <p className="text-xl italic text-neutral-800 mb-8 leading-relaxed">
+                      {testimonial.text}
+                    </p>
+                    <div className="flex flex-col items-center">
+                      <p className="font-medium text-neutral-900">{testimonial.name}</p>
                       <p className="text-neutral-600">{testimonial.location}</p>
                     </div>
-                  </motion.div>
-                ))}
-              </div>
-              <div className="flex justify-center mt-8 space-x-2">
-                {testimonials.map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setActiveTestimonial(index)}
-                    className={`w-2 h-2 rounded-full transition-colors ${
-                      index === activeTestimonial
-                        ? "bg-black"
-                        : "bg-neutral-300"
-                    }`}
-                    aria-label={`View testimonial ${index + 1}`}
-                  />
-                ))}
-              </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex justify-center space-x-2">
+              {testimonials.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setActiveTestimonial(idx)}
+                  className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                    idx === activeTestimonial
+                      ? "bg-amber-500 shadow-lg"
+                      : "bg-neutral-300 hover:bg-neutral-400"
+                  }`}
+                  aria-label={`Show testimonial ${idx + 1}`}
+                />
+              ))}
             </div>
-          ) : (
-            <div className="text-center text-neutral-500 py-8">
-              No testimonials available
-            </div>
-          )}
+          </div>
         </div>
       </section>
     </div>

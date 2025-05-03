@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import { useAuth } from "../utils/AuthContext";
-import { useNavigate, Navigate, Link } from "react-router-dom";
+import { useNavigate, Navigate, Link, useLocation } from "react-router-dom";
 import { useToastContext } from "../utils/ToastContext";
 
 const Login = () => {
   const { user, login, signup, googleLogin } = useAuth();
   const { addToast } = useToastContext();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
@@ -14,8 +15,18 @@ const Login = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // Show toast notification if redirected from checkout
+  useEffect(() => {
+    const fromCheckout = location.state?.from === "/checkout";
+    if (fromCheckout) {
+      addToast(location.state.message || "Please login to proceed with checkout", "info");
+    }
+  }, [location.state, addToast]);
+
   if (user) {
-    return <Navigate to="/account" replace />;
+    // Get the previous path from state or default to account
+    const fromPath = location.state?.from || "/account";
+    return <Navigate to={fromPath} replace />;
   }
 
   const handleSubmit = async (e) => {
@@ -29,17 +40,35 @@ const Login = () => {
     setLoading(true);
     try {
       if (isLogin) {
-        await login(email, password);
+        const result = await login(email, password);
+        const user = result.user;
+        // Format the current time
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('en-US', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+        
+        // Get user's name from email (before @ symbol)
+        const userName = email.split('@')[0];
+        
+        // Show success toast with user's name and time
+        addToast(`${userName} has successfully logged in`, "success");
       } else {
         await signup(email, password);
+        addToast("Account created successfully! Please login.", "success");
       }
       setLoading(false);
-      navigate("/account");
+      // Get the previous path from state or default to account
+      const fromPath = location.state?.from || "/account";
+      navigate(fromPath);
     } catch (err) {
+      const userName = email.split('@')[0];
       addToast(
         isLogin
-          ? "Failed to login. Please check your credentials."
-          : "Failed to sign up. Please try again.",
+          ? `${userName} failed to login. Please check your credentials.`
+          : `${userName} failed to sign up. Please try again.`,
         "error"
       );
       setLoading(false);

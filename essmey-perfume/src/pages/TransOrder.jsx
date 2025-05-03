@@ -27,7 +27,7 @@ export default function TransOrder() {
       setError("");
       setOrder(null);
       const trimmedOrderId = orderId.trim();
-      console.log("Searching for orderId:", trimmedOrderId);
+      // console.log("Searching for orderId:", trimmedOrderId);
 
       if (!trimmedOrderId) {
         setError("Please enter your Order ID.");

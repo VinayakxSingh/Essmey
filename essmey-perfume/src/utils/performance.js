@@ -6,10 +6,10 @@ export const measurePerformance = (metricName, callback) => {
     const duration = endTime - startTime;
 
     // Log performance metrics
-    console.log(`Performance - ${metricName}:`, {
-      duration: `${duration.toFixed(2)}ms`,
-      timestamp: new Date().toISOString(),
-    });
+    // console.log(`Performance - ${metricName}:`, {
+    //   duration: `${duration.toFixed(2)}ms`,
+    //   timestamp: new Date().toISOString(),
+    // });
 
     return result;
   }
@@ -26,7 +26,7 @@ export const trackPageLoad = () => {
         networkLatency: timing.responseEnd - timing.requestStart,
       };
 
-      console.log("Page Load Metrics:", metrics);
+      // console.log("Page Load Metrics:", metrics);
     });
   }
 };
@@ -35,11 +35,11 @@ export const trackResourceTiming = () => {
   if (typeof window !== "undefined" && window.performance) {
     const resources = performance.getEntriesByType("resource");
     resources.forEach((resource) => {
-      console.log("Resource Timing:", {
-        name: resource.name,
-        duration: resource.duration,
-        type: resource.initiatorType,
-      });
+      // console.log("Resource Timing:", {
+      //   name: resource.name,
+      //   duration: resource.duration,
+      //   type: resource.initiatorType,
+      // });
     });
   }
 };

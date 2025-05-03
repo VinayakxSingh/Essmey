@@ -1,11 +1,5 @@
 const CACHE_NAME = "essmey-v1";
-const urlsToCache = [
-  "/",
-  "/index.html",
-  "/manifest.json",
-  "/logo.png",
-  "/favicon.ico",
-];
+const urlsToCache = ["/", "/index.html", "/manifest.json", "/logo.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

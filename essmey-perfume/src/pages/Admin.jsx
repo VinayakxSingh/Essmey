@@ -226,7 +226,7 @@ const NewProduct = () => {
         bestSeller: formData.bestSeller,
         new: formData.new,
       });
-      console.log("Product created successfully!");
+      // console.log("Product created successfully!");
       setFormData({
         name: "",
         category: "women",

@@ -3,21 +3,23 @@ import { useSearchParams } from "react-router-dom";
 import { client } from "../utils/sanity";
 import ProductCard from "../components/ProductCard";
 import { XMarkIcon } from "@heroicons/react/24/outline";
-import { products as sampleProducts } from "../utils/sampleData";
 import { useToastContext } from "../utils/ToastContext";
+import { trackError } from "../utils/analytics";
 
 const Shop = () => {
   const [searchParams] = useSearchParams();
   const categoryParam = searchParams.get("category");
   const { addToast } = useToastContext();
 
-  // Sanity-fetched product list
-  const [allProducts, setAllProducts] = useState([]);
+  // State management
+  const cachedProducts = sessionStorage.getItem('products');
+  const [allProducts, setAllProducts] = useState(cachedProducts ? JSON.parse(cachedProducts) : []);
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [usingSampleData, setUsingSampleData] = useState(false);
 
+  // Filters state
   const [filters, setFilters] = useState({
     category: categoryParam || "all",
     sort: "featured",
@@ -27,174 +29,224 @@ const Shop = () => {
     isBestSeller: false,
   });
 
-  // Fetch products from sanity
-  useEffect(() => {
-    const fetchProducts = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        setUsingSampleData(false);
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({
+      category: 'all',
+      sort: 'featured',
+      minPrice: '',
+      maxPrice: '',
+      isNew: false,
+      isBestSeller: false,
+    });
+  };
 
-        const data = await client.fetch(
-          `*[_type == "product"]{
+  // Fetch products from Sanity
+  const fetchProducts = async () => {
+    try {
+      const query = `*[_type == "product"] {
+        _id,
+        name,
+        description,
+        price,
+        stock,
+        category,
+        featured,
+        new,
+        bestSeller,
+        images[] {
+          asset-> {
             _id,
-            name,
-            category,
-            price,
-            stock,
-            featured,
-            bestSeller,
-            new,
-            description,
-            notes,
-            "images": images[].asset->url
-          }`
-        );
-
-        if (!data || !Array.isArray(data)) {
-          throw new Error("Invalid products data received");
+            url,
+            metadata {
+              dimensions {
+                width,
+                height
+              }
+            }
+          }
         }
+      }`;
 
-        if (data.length === 0) {
-          throw new Error("No products found");
-        }
+      const data = await client.fetch(query);
 
-        setAllProducts(data);
-      } catch (error) {
-        console.error("Error fetching products:", error);
-        setError("Failed to load products from database");
-        addToast("Failed to load products from database", "error");
-
-        // Convert sample data to match Sanity format
-        const formattedSampleData = sampleProducts.map((product) => ({
-          _id: product.id.toString(),
-          name: product.name,
-          category: product.category,
-          price: product.price,
-          stock: product.stock,
-          featured: product.featured,
-          bestSeller: product.bestSeller,
-          new: product.new,
-          description: product.description,
-          notes: product.notes,
-          images: product.images,
-        }));
-
-        setAllProducts(formattedSampleData);
-        setUsingSampleData(true);
-        addToast("Using sample data for demonstration", "info");
-      } finally {
-        setLoading(false);
+      if (!data || !Array.isArray(data)) {
+        throw new Error("Invalid products data received");
       }
-    };
 
-    fetchProducts();
-  }, [addToast]);
+      // Process images to ensure they have proper URLs
+      const processedProducts = data.map(product => ({
+        ...product,
+        images: product.images?.map(image => ({
+          ...image,
+          asset: {
+            _ref: image.asset?._id,
+            _type: "image"
+          }
+        })) || [],
+        // Add fallback values for required fields
+        featured: product.featured || false,
+        bestSeller: product.bestSeller || false,
+        new: product.new || false,
+        price: product.price || 0,
+        stock: product.stock || 0
+      }));
 
-  // Filtering and sorting logic
+      // Cache products
+      sessionStorage.setItem('products', JSON.stringify(processedProducts));
+      sessionStorage.setItem('products_timestamp', Date.now().toString());
+
+      setAllProducts(processedProducts);
+      setFilteredProducts(processedProducts);
+
+      if (processedProducts.length === 0) {
+        const { products: sampleProducts } = await import(
+          "../utils/sampleData"
+        );
+        setAllProducts(sampleProducts);
+        setFilteredProducts(sampleProducts);
+        setUsingSampleData(true);
+        trackError(new Error("No products found"), "Shop.fetchProducts");
+      }
+
+    } catch (error) {
+      trackError(error, "Shop.fetchProducts");
+      setError("Failed to load products");
+
+      // Fallback to sample data
+      const { products: sampleProducts } = await import(
+        "../utils/sampleData"
+      );
+      setAllProducts(sampleProducts);
+      setFilteredProducts(sampleProducts);
+      setUsingSampleData(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Handle filter changes with error handling
+  const handleFilterChange = (e) => {
+    try {
+      const { name, value, type, checked } = e.target;
+      
+      // Handle checkbox values
+      const newValue = type === 'checkbox' ? checked : value;
+      
+      setFilters(prev => ({
+        ...prev,
+        [name]: newValue
+      }));
+    } catch (error) {
+      console.error('Error in filter change:', error);
+      trackError(error, 'Shop.filtering');
+      addToast({
+        title: 'Filter Error',
+        description: 'An error occurred while applying filters',
+        status: 'error'
+      });
+    }
+  };
+
+  // Apply filters and sorting whenever filters change
   useEffect(() => {
     try {
-      let filtered = [...allProducts];
+      // Only run filtering if we have products
+      if (allProducts.length === 0) return;
+      
+      let filtered = [...allProducts].filter(product => {
+        if (!product) return false;
+        
+        // Category filter
+        if (filters.category !== "all" && product.category !== filters.category) {
+          return false;
+        }
+        
+        // Price range filter
+        if (filters.minPrice && product.price < parseFloat(filters.minPrice)) {
+          return false;
+        }
+        if (filters.maxPrice && product.price > parseFloat(filters.maxPrice)) {
+          return false;
+        }
+        
+        // New product filter
+        if (filters.isNew && !product.new) {
+          return false;
+        }
+        
+        // Best seller filter
+        if (filters.isBestSeller && !product.bestSeller) {
+          return false;
+        }
+        
+        return true;
+      });
 
-      if (filters.category && filters.category !== "all") {
-        filtered = filtered.filter((p) => p.category === filters.category);
-      }
-      if (filters.minPrice) {
-        filtered = filtered.filter((p) => p.price >= Number(filters.minPrice));
-      }
-      if (filters.maxPrice) {
-        filtered = filtered.filter((p) => p.price <= Number(filters.maxPrice));
-      }
-      if (filters.isNew) {
-        filtered = filtered.filter((p) => p.new);
-      }
-      if (filters.isBestSeller) {
-        filtered = filtered.filter((p) => p.bestSeller);
-      }
-
-      // Sorting
+      // Apply sorting
       switch (filters.sort) {
-        case "price-low":
+        case 'price-low':
           filtered.sort((a, b) => a.price - b.price);
           break;
-        case "price-high":
+        case 'price-high':
           filtered.sort((a, b) => b.price - a.price);
           break;
-        case "newest":
-          filtered = filtered
-            .filter((p) => p.new)
-            .concat(filtered.filter((p) => !p.new));
+        case 'featured':
+          filtered.sort((a, b) => (b.featured ? 1 : 0) - (a.featured ? 1 : 0));
           break;
-        case "bestselling":
-          filtered = filtered
-            .filter((p) => p.bestSeller)
-            .concat(filtered.filter((p) => !p.bestSeller));
+        case 'newest':
+          filtered.sort((a, b) => (b.new ? 1 : 0) - (a.new ? 1 : 0));
+          break;
+        case 'bestselling':
+          filtered.sort((a, b) => (b.bestSeller ? 1 : 0) - (a.bestSeller ? 1 : 0));
           break;
         default:
-          filtered = filtered
-            .filter((p) => p.featured)
-            .concat(filtered.filter((p) => !p.featured));
+          filtered.sort((a, b) => a.name.localeCompare(b.name));
       }
 
       setFilteredProducts(filtered);
     } catch (error) {
-      console.error("Error filtering products:", error);
-      setError("Failed to filter products");
-      addToast("Failed to filter products", "error");
+      console.error('Error in filtering/sorting:', error);
+      trackError(error, 'Shop.filtering');
+      addToast({
+        title: 'Filter Error',
+        description: 'An error occurred while applying filters',
+        status: 'error'
+      });
     }
-  }, [allProducts, filters, addToast]);
+  }, [filters, allProducts]);
 
-  // Update from URL params when component mounts
+  // Initial data fetch
   useEffect(() => {
+    fetchProducts();
+
+    // Update from URL params when component mounts
     if (categoryParam) {
       setFilters((prev) => ({ ...prev, category: categoryParam }));
     }
+
+    // Cleanup cache and sample data state
+    return () => {
+      // Cleanup cache if it's expired
+      const cacheTimestamp = sessionStorage.getItem('products_timestamp');
+      if (cacheTimestamp && (Date.now() - parseInt(cacheTimestamp)) > 86400000) {
+        sessionStorage.removeItem('products');
+        sessionStorage.removeItem('products_timestamp');
+      }
+
+      // Reset sample data state
+      if (usingSampleData) {
+        setUsingSampleData(false);
+        setAllProducts([]);
+        setFilteredProducts([]);
+      }
+    };
   }, [categoryParam]);
 
-  const handleFilterChange = (e) => {
-    try {
-      const { name, value, type, checked } = e.target;
-      setFilters((prev) => ({
-        ...prev,
-        [name]: type === "checkbox" ? checked : value,
-      }));
-    } catch (error) {
-      console.error("Error updating filters:", error);
-      addToast("Failed to update filters", "error");
-    }
-  };
-
-  const clearFilters = () => {
-    try {
-      setFilters({
-        category: "all",
-        sort: "featured",
-        minPrice: "",
-        maxPrice: "",
-        isNew: false,
-        isBestSeller: false,
-      });
-    } catch (error) {
-      console.error("Error clearing filters:", error);
-      addToast("Failed to clear filters", "error");
-    }
-  };
-
+  // Render the component
   return (
-    <div className="pt-24 pb-16">
-      {/* Hero Section */}
-      <section className="relative bg-cream py-16 mb-8">
-        <div className="container-custom text-center">
-          <h1 className="text-4xl md:text-5xl font-serif font-bold mb-4">
-            Shop Collection
-          </h1>
-          <p className="text-xl max-w-2xl mx-auto">
-            Explore our handcrafted perfumes, each one meticulously created to
-            unveil your essence.
-          </p>
-        </div>
-      </section>
-      <div className="container-custom">
+    <div className="min-h-screen bg-neutral-50">
+      <div className="container mx-auto px-4 py-8">
         {usingSampleData && (
           <div className="mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-md text-center">
             <p className="text-yellow-800">
@@ -210,20 +262,18 @@ const Shop = () => {
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
           {/* Filters Sidebar */}
           <div className="lg:col-span-1">
-            <div className="mb-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-medium">Filters</h2>
-                <button
-                  onClick={clearFilters}
-                  className="text-sm text-neutral-600 hover:text-black flex items-center"
-                >
-                  Clear All
-                  <XMarkIcon className="h-4 w-4 ml-1" />
-                </button>
-              </div>
-              {/* Category Filter */}
+            <div className="bg-white rounded-lg shadow p-6">
+              <button
+                onClick={clearFilters}
+                className="flex items-center justify-between text-sm mb-6 hover:text-amber"
+              >
+                Clear all filters
+                <XMarkIcon className="w-4 h-4" />
+              </button>
+
+              {/* Category Filters */}
               <div className="mb-6">
-                <h3 className="text-sm font-medium mb-3">Category</h3>
+                <h3 className="text-sm font-medium mb-3">Categories</h3>
                 <div className="space-y-2">
                   <label className="flex items-center">
                     <input
@@ -271,6 +321,7 @@ const Shop = () => {
                   </label>
                 </div>
               </div>
+
               {/* Price Range */}
               <div className="mb-6">
                 <h3 className="text-sm font-medium mb-3">Price Range</h3>
@@ -299,6 +350,7 @@ const Shop = () => {
                   </div>
                 </div>
               </div>
+
               {/* Additional Filters */}
               <div className="space-y-2">
                 <label className="flex items-center">

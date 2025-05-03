@@ -46,5 +46,11 @@ export default {
     },
     {name: 'total', type: 'number', title: 'Total Amount'},
     {name: 'placedAt', type: 'datetime', title: 'Placed At'},
+    {
+      name: 'userId',
+      type: 'string',
+      title: 'User ID',
+      description: 'Firebase authenticated user ID',
+    },
   ],
 }

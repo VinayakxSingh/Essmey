@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { client } from "../utils/sanity";
 import { PortableText } from "@portabletext/react";
+import LoadingSpinner from "../components/LoadingSpinner";
 
 function BlogPost() {
   const { slug } = useParams();
@@ -19,13 +20,15 @@ function BlogPost() {
         setPost(post);
       } catch (error) {
         console.error("Error fetching post:", error);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchPost();
   }, [slug]);
 
-  if (loading) return <div className="text-center py-10">Loading...</div>;
+  if (loading) return <LoadingSpinner />;
   if (error)
     return <div className="text-center text-red-600 py-10">{error}</div>;
   if (!post)

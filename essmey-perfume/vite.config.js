@@ -17,7 +17,8 @@ export default defineConfig({
     host: true,
     port: 5173,
     strictPort: true,
-    hmr: false,
+    // Enable HMR by setting to true or removing this line
+    hmr: true,
     watch: {
       usePolling: true,
       interval: 1000,
@@ -30,6 +31,7 @@ export default defineConfig({
       },
     },
   },
+
   build: {
     sourcemap: true,
     rollupOptions: {

@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
-import { ShoppingBagIcon, HeartIcon } from "@heroicons/react/24/outline";
+import { ShoppingBagIcon, HeartIcon, CheckIcon } from "@heroicons/react/24/outline";
 import { HeartIcon as HeartSolidIcon } from "@heroicons/react/24/solid";
 import { useAppContext } from "../utils/context";
 import { getImageUrl } from "../utils/sanity";
@@ -11,6 +11,7 @@ const ProductCard = ({ product }) => {
   const [isHovered, setIsHovered] = useState(false);
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
+  const [isAddedToCart, setIsAddedToCart] = useState(false);
   const {
     addToCart,
     addToWishlist,
@@ -20,7 +21,7 @@ const ProductCard = ({ product }) => {
   } = useAppContext();
 
   if (!product || !product._id) {
-    console.error("Invalid product data provided to ProductCard");
+    trackError(new Error("Invalid product data provided to ProductCard"), "ProductCard");
     return null;
   }
 
@@ -29,9 +30,10 @@ const ProductCard = ({ product }) => {
   const handleAddToCart = () => {
     try {
       addToCart(product, 1);
-      console.log(`${product.name} added to cart!`);
+      setIsAddedToCart(true);
+      setTimeout(() => setIsAddedToCart(false), 1500);
     } catch (error) {
-      console.error("Failed to add to cart", error);
+      trackError(error, "ProductCard.addToCart");
     }
   };
 
@@ -41,33 +43,53 @@ const ProductCard = ({ product }) => {
     try {
       if (isInWishlist(product._id)) {
         removeFromWishlist(product._id);
-        console.log("Removed from wishlist");
+        // console.log("Removed from wishlist");
       } else {
         addToWishlist(product);
-        console.log("Added to wishlist");
+        // console.log("Added to wishlist");
       }
     } catch (error) {
       console.error("Failed to update wishlist", error);
     }
   };
 
-  const mainImage =
-    product.images && product.images.length > 0 && product.images[0]
-      ? product.images[0]
-      : FALLBACK_IMAGE;
+  const mainImage = product.images && product.images.length > 0 
+    ? getImageUrl(product.images[0]) || FALLBACK_IMAGE
+    : FALLBACK_IMAGE;
 
   const handleImageError = (e) => {
     console.error("Error loading product image:", e);
     setImageError(true);
-    if (e.target.src !== FALLBACK_IMAGE) {
-      e.target.src = FALLBACK_IMAGE;
-    }
+    // Try to load the fallback image
+    e.target.src = FALLBACK_IMAGE;
+    // Also try to load the original image again in case it was a temporary issue
+    setTimeout(() => {
+      if (product.images && product.images.length > 0) {
+        const imageUrl = getImageUrl(product.images[0]);
+        if (imageUrl) {
+          e.target.src = imageUrl;
+        }
+      }
+    }, 1000);
   };
 
   const handleImageLoad = () => {
     setImageLoading(false);
     setImageError(false);
   };
+
+  // Preload the image
+  useEffect(() => {
+    if (product.images && product.images.length > 0) {
+      const imageUrl = getImageUrl(product.images[0]);
+      if (imageUrl) {
+        const img = new Image();
+        img.src = imageUrl;
+        img.onload = handleImageLoad;
+        img.onerror = handleImageError;
+      }
+    }
+  }, [product.images]);
 
   const formatPrice = (price) => {
     try {
@@ -91,7 +113,7 @@ const ProductCard = ({ product }) => {
     >
       <Link to={`/product/${productId}`} className="block h-full">
         <div className="relative overflow-hidden group">
-          <div className="aspect-[3/4] bg-neutral-100 overflow-hidden">
+          <div className="aspect-[3/4] bg-neutral-100 overflow-hidden relative">
             {imageLoading && (
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="animate-pulse bg-neutral-200 w-full h-full"></div>
@@ -108,7 +130,11 @@ const ProductCard = ({ product }) => {
               loading="lazy"
             />
             <button
-              onClick={handleWishlistClick}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleWishlistClick(e);
+              }}
               className="absolute top-2 right-2 p-1 rounded-full bg-white bg-opacity-70 hover:bg-opacity-100 transition-colors"
               aria-label={
                 isInWishlist(productId)
@@ -122,36 +148,44 @@ const ProductCard = ({ product }) => {
                 <HeartIcon className="h-6 w-6 text-black" />
               )}
             </button>
-          </div>
-          <div
-            className={`absolute bottom-0 left-0 right-0 bg-black bg-opacity-80 text-white px-4 py-3 flex justify-between items-center transition-transform duration-300 ${
-              isHovered ? "translate-y-0" : "translate-y-full"
-            }`}
-          >
-            <span className="text-sm">Quick Add</span>
-            <button
-              onClick={handleAddToCart}
-              className="p-1 rounded-full hover:bg-white hover:bg-opacity-20 transition-colors"
-              aria-label="Add to Cart"
-              disabled={!product.stock || product.stock < 1}
+            <div
+              className={`absolute bottom-0 left-0 right-0 bg-black bg-opacity-80 text-white px-4 py-3 flex justify-between items-center transition-transform duration-300 ${
+                isHovered ? "translate-y-0" : "translate-y-full"
+              }`}
             >
-              <ShoppingBagIcon className="h-5 w-5" />
-            </button>
+              <span className="text-sm">Quick Add</span>
+              {isAddedToCart ? (
+                <CheckIcon className="h-5 w-5 text-green-500" />
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleAddToCart();
+                  }}
+                  className="p-1 rounded-full hover:bg-white hover:bg-opacity-20 transition-colors"
+                  aria-label="Add to Cart"
+                  disabled={!product.stock || product.stock < 1}
+                >
+                  <ShoppingBagIcon className="h-5 w-5" />
+                </button>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="p-4">
-          <h3 className="text-lg font-medium">
-            {product.name || "Unnamed Product"}
-          </h3>
-          <div className="flex justify-between items-center mt-1">
-            <span className="text-neutral-600">
-              {formatPrice(product.price)}
-            </span>
-            {product.category && (
-              <span className="text-xs text-neutral-500 uppercase">
-                {product.category}
+          <div className="p-4">
+            <h3 className="text-lg font-medium">
+              {product.name || "Unnamed Product"}
+            </h3>
+            <div className="flex justify-between items-center mt-1">
+              <span className="text-neutral-600">
+                {formatPrice(product.price)}
               </span>
-            )}
+              {product.category && (
+                <span className="text-xs text-neutral-500 uppercase">
+                  {product.category}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </Link>

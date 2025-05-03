@@ -136,10 +136,10 @@ const SearchModal = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {searchResults.slice(0, 4).map((product) => (
                   <div
-                    key={product.id}
+                    key={`search-result-${product._id}`}
                     className="flex items-center p-2 hover:bg-neutral-50 cursor-pointer"
                     onClick={() => {
-                      navigate(`/product/${product.id}`);
+                      navigate(`/product/${product._id}`);
                       closeModal();
                     }}
                   >

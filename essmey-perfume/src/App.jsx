@@ -29,20 +29,30 @@ import Blog from "./pages/Blog";
 import BlogPost from "./pages/BlogPost";
 import ForgotPassword from "./pages/ForgotPassword";
 import ThankYou from "./pages/ThankYou";
+import { initToast } from "./utils/analytics";
+import { Toaster } from "react-hot-toast";
 import { ChakraProvider } from "@chakra-ui/react";
+import OrderDetails from "./pages/OrderDetails";
 
 function App() {
   useEffect(() => {
-    if ("serviceWorker" in navigator) {
+    if (process.env.NODE_ENV === "production" && "serviceWorker" in navigator) {
       window.addEventListener("load", () => {
         navigator.serviceWorker
           .register("/sw.js")
           .then((registration) => {
-            console.log("ServiceWorker registration successful");
+            // console.log("ServiceWorker registration successful");
           })
           .catch((err) => {
-            console.log("ServiceWorker registration failed: ", err);
+            // console.log("ServiceWorker registration failed: ", err);
           });
+      });
+    } else if ("serviceWorker" in navigator) {
+      // Unregister service worker in development to avoid caching issues
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        registrations.forEach((registration) => {
+          registration.unregister();
+        });
       });
     }
   }, []);
@@ -50,10 +60,18 @@ function App() {
   return (
     <Router>
       <ChakraProvider>
-        <AuthProvider>
-          <AppProvider>
-            <ToastProvider>
+        <ToastProvider>
+          <AuthProvider>
+            <AppProvider>
               <ScrollToTop />
+              <Toaster position="top-right" toastOptions={{
+                style: {
+                  background: 'white',
+                  color: 'black',
+                  borderRadius: '8px',
+                  boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.1)'
+                }
+              }} />
               <div className="flex flex-col min-h-screen">
                 <Navbar />
                 <SearchModal />
@@ -83,14 +101,15 @@ function App() {
                     <Route path="/blog" element={<Blog />} />
                     <Route path="/blog/:slug" element={<BlogPost />} />
                     <Route path="/thank-you" element={<ThankYou />} />
+                    <Route path="/order/:orderId" element={<OrderDetails />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </main>
                 <Footer />
               </div>
-            </ToastProvider>
-          </AppProvider>
-        </AuthProvider>
+            </AppProvider>
+          </AuthProvider>
+        </ToastProvider>
       </ChakraProvider>
     </Router>
   );

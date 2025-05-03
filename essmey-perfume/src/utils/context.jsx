@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { client } from "./sanity";
+import { useAuth } from "./AuthContext";
 
 const AppContext = createContext();
 
@@ -12,9 +13,10 @@ export const useAppContext = () => {
 };
 
 export const AppProvider = ({ children }) => {
+  const { user } = useAuth();
+
   const [cartItems, setCartItems] = useState([]);
   const [wishlistItems, setWishlistItems] = useState([]);
-  const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -34,6 +36,17 @@ export const AppProvider = ({ children }) => {
       setError("Failed to load cart and wishlist data");
     }
   }, []);
+
+  // Sync cartItems state with localStorage cart when user logs in or localStorage cart changes
+  useEffect(() => {
+    try {
+      const savedCart = JSON.parse(localStorage.getItem("cart")) || [];
+      setCartItems(savedCart);
+    } catch (error) {
+      console.error("Error syncing cart from localStorage:", error);
+      setError("Failed to sync cart data");
+    }
+  }, [user]);
 
   // Save cart and wishlist to localStorage whenever they change
   useEffect(() => {
@@ -218,7 +231,6 @@ export const AppProvider = ({ children }) => {
         isInWishlist,
         user,
         isAuthenticated,
-        setUser,
         setIsAuthenticated,
         searchResults,
         handleSearch,
